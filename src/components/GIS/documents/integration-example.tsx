@@ -8,9 +8,9 @@ import {
 } from '../legends';
 
 // Import required styles
-import '../glassmorphic-map.css';
-import '../point-layer.css';
-import '../tooltip.css';
+import '../GeoJson/glassmorphic-map.css';
+import '../PointData/point-layer.css';
+import '../GeoJson/tooltip.css';
 
 // Example GeoJSON data (you would load this from your own file)
 const exampleGeoJson = {

@@ -1,8 +1,8 @@
 import React, { useMemo, useEffect, useState, useContext } from 'react';
 import { Marker } from 'react-map-gl/maplibre';
-import { MapContext } from './geo-json-map.tsx';
-import { calculateLabelPositions } from './utils/centroid-utils';
-import { getTheme, spacingToPx } from './utils/theme';
+import { MapContext } from './GeoJsonMap';
+import { calculateLabelPositions } from '../utils/centroid-utils';
+import { getTheme, spacingToPx } from '../utils/theme';
 import './region-labels.css';
 
 interface RegionLabelsProps {

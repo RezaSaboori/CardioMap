@@ -116,7 +116,7 @@ const Controls: React.FC<ControlsProps> = ({
 import { loadCsvData, loadResearchCentersData, getColorPalette, useThemeChange } from './components/GIS';
 import { Point, ColorMap } from './types';
 import './app.css';
-import provinces from './geojson/Iran.json';
+import provinces from './datasets/geojson/Iran.json';
 import * as turf from '@turf/turf';
 import IranProvincesSampleCsv from './datasets/IranProvincesSample.csv?url';
 import TehranCountiesSampleCsv from './datasets/TehranCountiesSample.csv?url';
@@ -140,8 +140,8 @@ const provinceNames = typedProvinces.features.map(feature => {
 });
 // Map/data config: all maps for marker display, only some have geodata
 const MAP_CONFIG: Record<string, { geojson: string; csv?: string }> = {
-  Iran: { geojson: './geojson/Iran.json', csv: IranProvincesSampleCsv },
-  Tehran: { geojson: './geojson/Tehran.json', csv: TehranCountiesSampleCsv },
+  Iran: { geojson: './datasets/geojson/Iran.json', csv: IranProvincesSampleCsv },
+  Tehran: { geojson: './datasets/geojson/Tehran.json', csv: TehranCountiesSampleCsv },
   // Add more maps with geodata here
 };
 const MAP_IDS = ['Iran', ...provinceNames];
@@ -218,7 +218,7 @@ const App: React.FC = () => {
   useEffect(() => {
     const loadData = async () => {
       // Always load geojson for the selected map
-      let geojsonPath = MAP_CONFIG[mapId]?.geojson || `./geojson/${mapId}.json`;
+      let geojsonPath = MAP_CONFIG[mapId]?.geojson || `./datasets/geojson/${mapId}.json`;
       setGeoJsonData(null);
       setGeodata([]);
       try {

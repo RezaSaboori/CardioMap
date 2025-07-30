@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import GeoJsonMap from './geo-json-map.tsx';
-import PointLayer from './PointLayer';
-import FlowLayer from './FlowLayer';
+import GeoJsonMap from './GeoJsonMap';
+import PointLayer from '../PointData/PointLayer';
+import FlowLayer from '../FlowData/FlowLayer';
 
 /**
  * GeoMapContainer: Self-contained, reusable map component.

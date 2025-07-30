@@ -1,8 +1,8 @@
 import React, { useMemo, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import { Marker, Source, Layer } from 'react-map-gl/maplibre';
 import { FlowData, FlowLayerProps } from '../../types';
-import { MapContext } from './geo-json-map';
-import { getColorPalette } from './utils/theme';
+import { MapContext } from '../GeoJson/GeoJsonMap';
+import { getColorPalette } from '../utils/theme';
 import './flow-layer.css';
 
 interface AnimatedParticle {

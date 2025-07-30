@@ -3,14 +3,14 @@ import { Marker } from 'react-map-gl/maplibre';
 import Supercluster from 'supercluster';
 import { pie as d3pie, arc as d3arc } from 'd3-shape';
 import { Point, ColorMap } from '../../types';
-import { MapContext } from './geo-json-map';
-import { blendColors, parseRgb } from './utils/color-utils';
+import { MapContext } from '../GeoJson/GeoJsonMap';
+import { blendColors, parseRgb } from '../utils/color-utils';
 import { 
     getPointClippingInfo 
-} from './utils/polygon-masking';
+} from '../utils/polygon-masking';
 import * as turf from '@turf/turf';
-import { useOptimalBlur } from './utils/resolution-utils';
-import { getTheme, spacingToPx, getColorPalette } from './utils/theme';
+import { useOptimalBlur } from '../utils/resolution-utils';
+import { getTheme, spacingToPx, getColorPalette } from '../utils/theme';
 import './point-layer.css';
 
 interface PointLayerProps {

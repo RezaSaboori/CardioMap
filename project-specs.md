@@ -33,7 +33,7 @@ This project delivers a **modular, reusable GIS component** for integration into
 | `src/utils/`           | Utility functions (e.g., data adapters, GEOJSON matchers)           |
 | `src/types/`           | TypeScript type definitions                                         |
 | `src/datasets/`        | Example datasets and connectors                                     |
-| `src/geojson/`         | Province-level GEOJSON files                                        |
+| `src/datasets/geojson/` | Province-level GEOJSON files                                        |
 | `src/styles/`          | Styling files (global styles, theme, etc.)                          |
 | `src/styles/theme.css` | Predefined theme stylesheet for consistent UI                       |
 | `src/config/`          | Configuration files (e.g., map settings, dataset configs)           |

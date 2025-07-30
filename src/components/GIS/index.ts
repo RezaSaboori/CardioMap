@@ -1,10 +1,56 @@
-// Export main components
-export { default as GeoMapContainer } from './GeoMapContainer';
+// Export main components from organized subdirectories
+export { default as GeoMapContainer } from './GeoJson/GeoMapContainer';
 export { default as CardsGrid } from './CardsGrid';
+
+// Export GeoJSON components
+export { default as GeoJsonMap } from './GeoJson/GeoJsonMap';
+export { default as RegionLabels } from './GeoJson/RegionLabels';
+
+// Export GeoData components
+export { default as GeodataEnricher } from './GeoData/GeodataEnricher';
+export { default as GeodataVisualizer } from './GeoData/GeodataVisualizer';
+
+// Export PointData components
+export { default as PointLayer } from './PointData/PointLayer';
+
+// Export FlowData components
+export { default as FlowLayer } from './FlowData/FlowLayer';
+
+// Export interfaces from subdirectories
+export type { 
+  GeoJsonMapProps,
+  GeoMapContainerProps,
+  HoverInfo
+} from './GeoJson';
+
+export type { 
+  Point,
+  ColorMap as PointColorMap,
+  PointLayerProps,
+  ResearchCenterCsvRow
+} from './PointData';
+
+export type { 
+  FlowData,
+  FlowLayerProps,
+  ColorMap as FlowColorMap
+} from './FlowData';
 
 // Export utility functions
 export { loadFlowsFromCsv, loadCsvData, loadResearchCentersData } from './utils/csv-loader';
 export { getColorPalette } from './utils/theme';
+
+// Export geodata utilities
+export { 
+  enrichGeoJsonData,
+  getColorMode,
+  buildRegionDataMap,
+  getRegionColor,
+  createGeodataFillLayer,
+  type GeodataRow,
+  type GeodataEnrichmentResult,
+  type ColorScheme
+} from './utils/geodata-utils';
 
 // Export hooks
 export { useThemeChange } from './hooks/useThemeChange';
@@ -25,56 +71,4 @@ export {
   getDynamicFlowLegendConfig,
   flowDataColorMap,
   flowDataLabels
-} from './legends';
-
-// Export interfaces
-export interface Point {
-    id: string;
-    category: string;
-    categoryFa: string;
-    coordinates: [number, number];
-    sizeValue: number;
-    name: string;
-  }
-  
-  export interface ColorMap {
-      [key: string]: string;
-  }
-  
-  export interface FlowData {
-    id: string;
-    origin: [number, number];
-    destination: [number, number];
-    category: string;
-    categoryFa?: string;
-    sizeValue: number;
-    name?: string;
-    originalData?: Record<string, any>; // Store the original CSV row data
-  }
-  
-  export interface FlowLayerProps {
-    flows: FlowData[];
-    colorMap: ColorMap;
-    onFlowHover?: (hoverInfo: { longitude: number; latitude: number; featureName: string; } | null) => void;
-    onFlowClick?: (flow: FlowData) => void;
-    categoryLabels?: { [key: string]: string };
-    minSize?: number;
-    maxSize?: number;
-    enableAnimation?: boolean;
-    nameColumn?: string;
-  }
-  
-  export interface ResearchCenterCsvRow {
-      'ID': string;
-      'name:en': string;
-      'name:fa': string;
-      'Category:en': string;
-      'Category:fa': string;
-      'Province': string;
-      'City': string;
-      'Latitude': string;
-      'Longitude': string;
-      'SizeMetric': string;
-      'Map': string;
-      'Part': string;
-  } 
+} from './legends'; 
