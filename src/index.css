@@ -1,0 +1,108 @@
+/* Import the theme first */
+@import './styles/theme.css';
+
+/* Universal box-sizing */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: var(--font-weight-medium);
+  color: var(--color-blue);
+  text-decoration: inherit;
+  transition: color var(--motion-duration-normal) var(--motion-easing-easeOut);
+}
+
+a:hover {
+  color: var(--color-indigo);
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  font-family: var(--font-family-system);
+  background-color: var(--color-gray1);
+  color: var(--color-gray12);
+}
+
+h1 {
+  font-size: var(--font-size-4xl);
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-gray12);
+}
+
+button {
+  border-radius: var(--border-radius-item-sm);
+  border: var(--border-width-thin) solid transparent;
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  font-family: inherit;
+  background-color: var(--color-gray2);
+  color: var(--color-gray12);
+  cursor: pointer;
+  transition: all var(--motion-duration-normal) var(--motion-easing-easeOut);
+  box-shadow: var(--elevation-1);
+}
+
+button:hover {
+  border-color: var(--color-blue);
+  box-shadow: var(--elevation-2);
+  transform: translateY(-1px);
+}
+
+button:focus,
+button:focus-visible {
+  outline: var(--border-width-normal) solid var(--color-blue);
+  outline-offset: 2px;
+}
+
+button:active {
+  transform: translateY(0);
+  box-shadow: var(--elevation-1);
+}
+
+/* Enhanced form controls */
+select {
+  border-radius: var(--border-radius-item-sm);
+  border: var(--border-width-thin) solid var(--color-gray3);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+  font-family: inherit;
+  background-color: var(--color-gray1);
+  color: var(--color-gray12);
+  cursor: pointer;
+  transition: all var(--motion-duration-normal) var(--motion-easing-easeOut);
+  box-shadow: var(--elevation-1);
+}
+
+select:hover {
+  border-color: var(--color-gray4);
+  box-shadow: var(--elevation-2);
+}
+
+select:focus {
+  outline: var(--border-width-normal) solid var(--color-blue);
+  outline-offset: 2px;
+  border-color: var(--color-blue);
+}
+
+label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-gray10);
+}

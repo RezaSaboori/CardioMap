@@ -1,0 +1,25 @@
+.map-tooltip .maplibregl-popup-content {
+    position: relative;
+    background: color-mix(in srgb, var(--color-gray2) 90%, transparent); 
+    padding: var(--spacing-sm) var(--spacing-sm);
+    border-radius: var(--border-radius-item-sm);
+    border: var(--border-width-hairline) solid  rgba(255, 255, 255, 0.5);
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-weight-regular);
+    font-family: var(--font-family-system);
+    box-shadow: var(--elevation-3);
+    max-width: 200px;
+    transition: all var(--motion-duration-fast) var(--motion-easing-easeOut);
+    transform: translateY(1rem);
+    overflow: hidden;
+    text-align: right;
+}
+
+.map-tooltip .maplibregl-popup-tip {
+    display: none;
+}
+
+.map-tooltip .maplibregl-popup-content:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--elevation-4);
+} 

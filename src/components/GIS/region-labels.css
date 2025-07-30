@@ -1,0 +1,69 @@
+.region-label {
+  position: relative;
+  pointer-events: auto;
+  transition: transform var(--motion-duration-slow) var(--motion-easing-easeOut), 
+              opacity var(--motion-duration-slow) var(--motion-easing-easeOut),
+              scale var(--motion-duration-normal) var(--motion-easing-easeInOut);
+  z-index: 100;
+  animation: label-appear 0.4s var(--motion-easing-easeOut);
+}
+
+@keyframes label-appear {
+  from {
+    opacity: 0;
+    transform: translateY(var(--spacing-sm)) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.region-label-content {
+  color: var(--color-gray12);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--border-radius-item-xs);
+  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-family-persian);
+  text-align: center;
+  white-space: nowrap;
+  font-size: var(--font-size-3xl);
+  line-height: var(--line-height-tight);
+  user-select: none;
+  max-width: 500px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 42px;
+  transition: all var(--motion-duration-slow) var(--motion-easing-easeOut);
+}
+
+.region-label-hovered {
+  z-index: 1000;
+  transform: scale(1.02);
+}
+
+.region-label-hovered .region-label-content {
+  transform: translateY(-1px);
+}
+
+/* Responsive font sizes using theme variables */
+@media (max-width: 768px) {
+  .region-label-content {
+    font-size: var(--font-size-2xl);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    max-width: 300px;
+    min-height: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .region-label-content {
+    font-size: var(--font-size-lg);
+    padding: var(--spacing-xs) var(--spacing-xs);
+    max-width: 250px;
+    min-height: 24px;
+  }
+} 

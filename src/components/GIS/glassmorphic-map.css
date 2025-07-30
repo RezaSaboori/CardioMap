@@ -1,0 +1,33 @@
+/* Glassmorphic Map Styles using theme variables */
+
+.glassmorphic-map {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background: transparent; /* Transparent background */
+    border-radius: var(--border-radius-container-md);
+    box-shadow: var(--elevation-4);
+}
+
+/* Apply glassmorphic effect only to markers, not the map itself */
+.glassmorphic-map .maplibregl-canvas-container {
+    position: relative;
+}
+
+/* Remove the global blur - we'll only blur markers */
+.glassmorphic-map .maplibregl-canvas {
+    filter: none;
+    border-radius: var(--border-radius-container-md);
+}
+
+/* Container for masked markers - minimal changes to preserve coordinates */
+.glassmorphic-map .maplibregl-marker {
+    z-index: 999; /* Below the glassmorphic overlay */
+}
+
+/* Ensure tooltips and popups stay above the glass and remain crisp */
+.glassmorphic-map .maplibregl-popup {
+    z-index: 1001; /* Above the glassmorphic overlay */
+    filter: none; /* Keep popups crisp */
+} 

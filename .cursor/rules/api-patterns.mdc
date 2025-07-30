@@ -1,0 +1,26 @@
+---
+description: API development patterns and standards
+globs: ["**/api/**/*.ts", "**/routes/**/*.ts", "**/controllers/**/*.ts"]
+alwaysApply: false
+---
+
+# API Development Standards
+
+## RESTful Principles
+- Use proper HTTP methods (GET, POST, PUT, DELETE, PATCH)
+- Implement consistent URL patterns
+- Return appropriate HTTP status codes
+- Use proper content-type headers
+
+## Validation
+- Use zod for all request/response validation
+- Define clear schemas for all endpoints
+- Validate input data before processing
+- Return clear error messages for validation failures
+
+## Security
+- Implement proper authentication and authorization
+- Validate and sanitize all inputs
+- Use HTTPS for all communications
+- Implement rate limiting where appropriate
+- Never expose sensitive data in responses

@@ -1,0 +1,33 @@
+---
+description: General coding standards for this project
+globs: ["**/*.ts", "**/*.tsx", "**/*.js", "**/*.jsx"]
+alwaysApply: true
+---
+
+# Coding Standards
+
+## TypeScript Guidelines
+- Use strict TypeScript configuration
+- Define interfaces for all complex objects
+- Use proper type annotations for function parameters and return types
+- Prefer type over interface for simple types
+- Use const assertions where appropriate
+
+## React Guidelines (if applicable)
+- Use functional components with hooks
+- Implement proper prop types
+- Follow React best practices
+- Use context for global state management
+- Prefer composition over inheritance
+
+## Error Handling
+- Always handle errors explicitly
+- Use try-catch blocks for async operations
+- Implement proper error boundaries in React apps
+- Log errors appropriately for debugging
+
+## Testing
+- Write unit tests for all business logic
+- Use descriptive test names
+- Follow AAA pattern (Arrange, Act, Assert)
+- Mock external dependencies appropriately
