@@ -15,9 +15,27 @@ import {
   getDynamicResearchCentersLegendConfig,
   getFlowDataLegendConfig,
   getDynamicFlowLegendConfig,
+  getDatasetLegendConfig,
   flowDataColorMap,
   flowDataLabels
 } from './components/GIS';
+import { 
+  geoDataConfig, 
+  getDatasetConfig, 
+  getDatasetNames,
+  GeoDatasetConfig 
+} from './config/geoDataConfig';
+import { loadDatasetData, DatasetData } from './config/dataLoader';
+import { loadCsvData, loadResearchCentersData, getColorPalette, useThemeChange } from './components/GIS';
+import { Point, ColorMap } from './types';
+import { GeodataRow } from './components/GIS/utils/geodata-utils';
+import './app.css';
+import provinces from './datasets/geojson/Iran.json';
+import * as turf from '@turf/turf';
+import IranProvincesSampleCsv from './datasets/IranProvincesSample.csv?url';
+import TehranCountiesSampleCsv from './datasets/TehranCountiesSample.csv?url';
+import ResearchCenterCsv from './datasets/ResearchCenter.csv?url';
+
 // ThemeToggle as a local component
 const ThemeToggle: React.FC = () => {
   const [dark, setDark] = useState(() => document.documentElement.getAttribute('data-theme') === 'dark');
@@ -41,31 +59,33 @@ const ThemeToggle: React.FC = () => {
 
 // Controls as a local component
 interface ControlsProps {
-  dataType: string;
-  onDataTypeChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  selectedDataset: string;
+  onDatasetChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   mapId: string;
   onMapChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
   mapIds: string[];
-  selectedGeodata: 'pop' | 'health_status' | 'nothing';
-  onGeodataChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+  dataType: string;
+  onDataTypeChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
 }
 
 const Controls: React.FC<ControlsProps> = ({
-  dataType,
-  onDataTypeChange,
+  selectedDataset,
+  onDatasetChange,
   mapId,
   onMapChange,
   mapIds,
-  selectedGeodata,
-  onGeodataChange,
+  dataType,
+  onDataTypeChange,
 }) => {
-  // Combined data options
+  // Get dataset options from configuration
+  const datasetOptions = getDatasetNames();
+  
+  // Combined data options (keeping legacy support for ResearchCenter and FlowData)
   const dataOptions = [
     { value: 'nothing', label: 'No Data' },
     { value: 'ResearchCenter', label: 'Research Centers' },
     { value: 'FlowData', label: 'Disease Path' },
-    { value: 'pop', label: 'Population Data' },
-    { value: 'health_status', label: 'Health Status Data' }
+    ...datasetOptions.map(name => ({ value: name, label: name }))
   ];
 
   const handleCombinedDataChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -73,13 +93,13 @@ const Controls: React.FC<ControlsProps> = ({
     
     if (value === 'ResearchCenter' || value === 'FlowData') {
       onDataTypeChange(e);
-      onGeodataChange({ target: { value: 'nothing' } } as React.ChangeEvent<HTMLSelectElement>);
-    } else if (value === 'pop' || value === 'health_status') {
-      onGeodataChange(e);
+      onDatasetChange({ target: { value: 'nothing' } } as React.ChangeEvent<HTMLSelectElement>);
+    } else if (datasetOptions.includes(value)) {
+      onDatasetChange(e);
       onDataTypeChange({ target: { value: 'Nothing' } } as React.ChangeEvent<HTMLSelectElement>);
     } else {
       onDataTypeChange(e);
-      onGeodataChange({ target: { value: 'nothing' } } as React.ChangeEvent<HTMLSelectElement>);
+      onDatasetChange({ target: { value: 'nothing' } } as React.ChangeEvent<HTMLSelectElement>);
     }
   };
 
@@ -87,7 +107,7 @@ const Controls: React.FC<ControlsProps> = ({
   const getCombinedValue = () => {
     if (dataType === 'ResearchCenter') return 'ResearchCenter';
     if (dataType === 'FlowData') return 'FlowData';
-    if (selectedGeodata !== 'nothing') return selectedGeodata;
+    if (selectedDataset !== 'nothing') return selectedDataset;
     return 'nothing';
   };
 
@@ -109,18 +129,10 @@ const Controls: React.FC<ControlsProps> = ({
           </option>
         ))}
       </select>
-
     </div>
   );
 };
-import { loadCsvData, loadResearchCentersData, getColorPalette, useThemeChange } from './components/GIS';
-import { Point, ColorMap } from './types';
-import './app.css';
-import provinces from './datasets/geojson/Iran.json';
-import * as turf from '@turf/turf';
-import IranProvincesSampleCsv from './datasets/IranProvincesSample.csv?url';
-import TehranCountiesSampleCsv from './datasets/TehranCountiesSample.csv?url';
-import ResearchCenterCsv from './datasets/ResearchCenter.csv?url';
+
 // Define a simple type for our GeoJSON structure
 interface GeoJSON {
   features: {
@@ -138,6 +150,7 @@ const provinceNames = typedProvinces.features.map(feature => {
   const provinceName = feature.properties.tags['name:en'].replace(' Province', '').replace(/ /g, '');
   return provinceName;
 });
+
 // Map/data config: all maps for marker display, only some have geodata
 const MAP_CONFIG: Record<string, { geojson: string; csv?: string }> = {
   Iran: { geojson: './datasets/geojson/Iran.json', csv: IranProvincesSampleCsv },
@@ -149,6 +162,7 @@ const MAP_IDS = ['Iran', ...provinceNames];
 const App: React.FC = () => {
   const [mapId, setMapId] = useState<string>('Iran');
   const [dataType, setDataType] = useState<string>('ResearchCenter');
+  const [selectedDataset, setSelectedDataset] = useState<string>('nothing');
   const [points, setPoints] = useState<Point[]>([]);
   const [flows, setFlows] = useState<any[]>([]);
   const [filteredPoints, setFilteredPoints] = useState<Point[]>([]);
@@ -156,11 +170,15 @@ const App: React.FC = () => {
   const [geoJsonData, setGeoJsonData] = useState<any>(null);
   const themeVersion = useThemeChange('html', 'data-theme');
   const [showMap, setShowMap] = useState(true);
-  const [selectedGeodata, setSelectedGeodata] = useState<'pop' | 'health_status' | 'nothing'>('nothing');
-  const [geodata, setGeodata] = useState<Record<string, any>[]>([]);
+  const [geodata, setGeodata] = useState<GeodataRow[]>([]);
   const [selectedRegionData, setSelectedRegionData] = useState<{ regionName: string; data: Record<string, any> } | null>(null);
   const [selectedPointData, setSelectedPointData] = useState<{ pointName: string; data: Record<string, any> } | null>(null);
   const [selectedFlowData, setSelectedFlowData] = useState<{ flowName: string; data: Record<string, any> } | null>(null);
+  
+  // New state for dataset configuration
+  const [currentDatasetConfig, setCurrentDatasetConfig] = useState<GeoDatasetConfig | null>(null);
+  const [datasetData, setDatasetData] = useState<DatasetData | null>(null);
+  const [isDatasetLoading, setIsDatasetLoading] = useState<boolean>(false);
 
   useEffect(() => {
     setShowMap(false);
@@ -185,6 +203,45 @@ const App: React.FC = () => {
 
   // Create flow category labels
   const flowCategoryLabels = { ...flowDataLabels };
+
+  // Load dataset data when selectedDataset changes
+  useEffect(() => {
+    const loadDataset = async () => {
+      if (selectedDataset === 'nothing') {
+        setCurrentDatasetConfig(null);
+        setDatasetData(null);
+        setIsDatasetLoading(false);
+        return;
+      }
+
+      setIsDatasetLoading(true);
+      
+      const config = getDatasetConfig(selectedDataset);
+      if (!config) {
+        console.error(`Dataset configuration not found for: ${selectedDataset}`);
+        setIsDatasetLoading(false);
+        return;
+      }
+
+      setCurrentDatasetConfig(config);
+      
+      try {
+        const data = await loadDatasetData(config);
+        setDatasetData(data);
+        setGeoJsonData(data.geoJson);
+        setGeodata(data.csvData as GeodataRow[]);
+      } catch (error) {
+        console.error(`Error loading dataset ${selectedDataset}:`, error);
+        setDatasetData(null);
+        setGeoJsonData(null);
+        setGeodata([]);
+      } finally {
+        setIsDatasetLoading(false);
+      }
+    };
+
+    loadDataset();
+  }, [selectedDataset]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -215,8 +272,14 @@ const App: React.FC = () => {
     fetchData();
   }, []); // Remove selectedFlowDataset dependency
 
+  // Legacy data loading for map changes (keeping for backward compatibility)
   useEffect(() => {
     const loadData = async () => {
+      // Only load legacy data if no dataset is selected
+      if (selectedDataset !== 'nothing') {
+        return;
+      }
+
       // Always load geojson for the selected map
       let geojsonPath = MAP_CONFIG[mapId]?.geojson || `./datasets/geojson/${mapId}.json`;
       setGeoJsonData(null);
@@ -233,7 +296,7 @@ const App: React.FC = () => {
       if (csvPath) {
         try {
           const data = await loadCsvData(csvPath);
-          setGeodata(data);
+          setGeodata(data as GeodataRow[]);
         } catch (error) {
           console.error(`Error loading CSV for mapId: ${mapId}`, error);
           setGeodata([]);
@@ -243,7 +306,7 @@ const App: React.FC = () => {
       }
     };
     loadData();
-  }, [mapId]);
+  }, [mapId, selectedDataset]);
 
   useEffect(() => {
     if (!geoJsonData) {
@@ -280,8 +343,8 @@ const App: React.FC = () => {
     setDataType(event.target.value);
   };
 
-  const handleGeodataChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedGeodata(event.target.value as 'pop' | 'health_status' | 'nothing');
+  const handleDatasetChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setSelectedDataset(event.target.value);
   };
 
   const handlePointHover = (info: { longitude: number; latitude: number; featureName: string; } | null) => {
@@ -291,21 +354,32 @@ const App: React.FC = () => {
   const handleRegionClick = (regionData: Record<string, any>, regionName: string) => {
     console.log('=== REGION CLICK ===');
     console.log('Region clicked:', regionName);
-    console.log('Selected geodata:', selectedGeodata);
+    console.log('Selected dataset:', selectedDataset);
     console.log('Available geodata:', geodata);
     
-    // Don't show data card if no geodata is selected
-    if (selectedGeodata === 'nothing') {
-      console.log('No geodata selected, not showing data card');
+    // Don't show data card if no dataset is selected
+    if (selectedDataset === 'nothing') {
+      console.log('No dataset selected, not showing data card');
       setSelectedRegionData(null);
       setSelectedPointData(null);
       return;
     }
     
+    // Helper function to normalize region names (same as in dataLoader.ts)
+    const normalizeRegionName = (name: string): string => {
+      if (!name) return '';
+      // Simply remove " Province" suffix and spaces to match CSV format
+      return name.replace(' Province', '').replace(/ /g, '');
+    };
+    
+    // Use the normalized name if available, otherwise normalize the region name
+    const normalizedName = regionData.normalizedName || normalizeRegionName(regionName);
+    
     // Find the corresponding data in the geodata array
     const matchingData = geodata.find(item => {
-      console.log('Comparing:', item.name, 'with:', regionName);
-      return item.name === regionName;
+      const normalizedItemName = normalizeRegionName(item.name);
+      console.log('Comparing:', item.name, '->', normalizedItemName, 'with:', normalizedName);
+      return normalizedItemName === normalizedName;
     });
 
     if (matchingData) {
@@ -316,7 +390,7 @@ const App: React.FC = () => {
         data: matchingData
       });
     } else {
-      console.log('No matching data found for:', regionName);
+      console.log('No matching data found for:', normalizedName);
       setSelectedRegionData(null);
     }
   };
@@ -396,23 +470,59 @@ const App: React.FC = () => {
 
   const defaultColors = getDefaultColors(colorPalette);
 
+  // Determine color mode and legend config based on current dataset
+  const getColorMode = () => {
+    if (!currentDatasetConfig) return 'default';
+    return currentDatasetConfig.type === 'numeric' ? 'continuous' : 'categorical';
+  };
+
+  const getLegendConfig = () => {
+    if (currentDatasetConfig && datasetData) {
+      return getDatasetLegendConfig(currentDatasetConfig, datasetData, colorPalette);
+    }
+    
+    // Legacy legend configs
+    if (geodata.length > 0 && selectedDataset !== 'nothing') {
+      const geodataLegend = getGeodataLegendConfig(selectedDataset as any, colorPalette);
+      if (geodataLegend) {
+        return geodataLegend;
+      }
+    }
+    
+    if (dataType === 'ResearchCenter' && filteredPoints.length > 0) {
+      const researchLegend = getDynamicResearchCentersLegendConfig(filteredPoints, colorMap, categoryLabels);
+      if (researchLegend) {
+        return researchLegend;
+      }
+    }
+    
+    if (dataType === 'FlowData' && flows.length > 0) {
+      const flowLegend = getDynamicFlowLegendConfig(flows, colorMap, flowCategoryLabels, 'Disease Path');
+      if (flowLegend) {
+        return flowLegend;
+      }
+    }
+    
+    return undefined;
+  };
+
   return (
     <>
       <ThemeToggle />
       <div className="app-container">
         <Controls
-          dataType={dataType}
-          onDataTypeChange={handleDataTypeChange}
+          selectedDataset={selectedDataset}
+          onDatasetChange={handleDatasetChange}
           mapId={mapId}
           onMapChange={handleMapChange}
           mapIds={MAP_IDS}
-          selectedGeodata={selectedGeodata}
-          onGeodataChange={handleGeodataChange}
+          dataType={dataType}
+          onDataTypeChange={handleDataTypeChange}
         />
         <div className="gis-container">
           <div className="map-container">
             <div className={showMap ? "map-inner map-fade-in" : "map-inner"}>
-              {showMap && geoJsonData && (
+              {showMap && geoJsonData && !isDatasetLoading && (
                 <GeoMapContainer
                   geoJsonData={geoJsonData}
                   geodata={geodata}
@@ -424,14 +534,8 @@ const App: React.FC = () => {
                   beforeOpacity={beforeOpacity}
                   afterOpacity={0.3}
                   coloredDataOpacity={coloredDataOpacity}
-                  selectedGeodata={selectedGeodata}
-                  colorMode={
-                    geodata.length > 0 && selectedGeodata === 'pop'
-                      ? 'continuous'
-                      : geodata.length > 0 && selectedGeodata === 'health_status'
-                      ? 'categorical'
-                      : 'default'
-                  }
+                  selectedGeodata={currentDatasetConfig?.dataColumn || 'nothing'}
+                  colorMode={getColorMode()}
                   defaultColors={defaultColors}
                   categoricalSchemes={categoricalSchemes}
                   continuousSchemes={continuousSchemes}
@@ -440,6 +544,8 @@ const App: React.FC = () => {
                   onRegionClick={handleRegionClick}
                   onPointClick={handlePointClick}
                   onFlowClick={handleFlowClick}
+                  currentDatasetConfig={currentDatasetConfig}
+                  datasetData={datasetData}
                 />
               )}
             </div>
@@ -451,26 +557,9 @@ const App: React.FC = () => {
                   legends: (() => {
                     const legends = [];
                     
-                    // Show geodata legend only when geodata is selected and available
-                    if (geodata.length > 0 && selectedGeodata !== 'nothing') {
-                      const geodataLegend = getGeodataLegendConfig(selectedGeodata, colorPalette);
-                      if (geodataLegend) {
-                        legends.push(geodataLegend);
-                      }
-                    }
-                    // Show research centers legend only when research centers are selected
-                    else if (dataType === 'ResearchCenter' && filteredPoints.length > 0) {
-                      const researchLegend = getDynamicResearchCentersLegendConfig(filteredPoints, colorMap, categoryLabels);
-                      if (researchLegend) {
-                        legends.push(researchLegend);
-                      }
-                    }
-                    // Show flow legend only when flow data is selected
-                    else if (dataType === 'FlowData' && flows.length > 0) {
-                      const flowLegend = getDynamicFlowLegendConfig(flows, colorMap, flowCategoryLabels, 'Disease Path');
-                      if (flowLegend) {
-                        legends.push(flowLegend);
-                      }
+                    const legendConfig = getLegendConfig();
+                    if (legendConfig) {
+                      legends.push(legendConfig);
                     }
                     
                     return legends;
@@ -490,7 +579,26 @@ const App: React.FC = () => {
                 const data = selectedRegionData?.data || selectedPointData?.data || selectedFlowData?.data;
                 if (!data) return [];
                 
-                // Convert data object to cards format
+                // If we have a current dataset config, use its card configuration
+                if (currentDatasetConfig && selectedRegionData) {
+                  const cards = [];
+                  for (const [key, value] of Object.entries(data)) {
+                    if (key === 'name' || value === null || value === undefined || value === '') continue;
+                    
+                    const cardConfig = currentDatasetConfig.cardConfig[key];
+                    if (cardConfig) {
+                      cards.push({
+                        title: cardConfig.title,
+                        value: value,
+                        unit: cardConfig.unit,
+                        info: cardConfig.info
+                      });
+                    }
+                  }
+                  return cards;
+                }
+                
+                // Legacy card generation
                 const cards = [];
                 for (const [key, value] of Object.entries(data)) {
                   if (key === 'name' || value === null || value === undefined || value === '') continue;

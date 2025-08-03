@@ -2,27 +2,27 @@ import { getDynamicFlowLegendConfig, getDynamicResearchCentersLegendConfig } fro
 
 describe('Legend Configuration Tests', () => {
   describe('getDynamicFlowLegendConfig', () => {
-    it('should return null for empty flows array', () => {
+    it('should return undefined for empty flows array', () => {
       const result = getDynamicFlowLegendConfig([], {}, {});
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
-    it('should return null for null flows', () => {
+    it('should return undefined for null flows', () => {
       const result = getDynamicFlowLegendConfig(null as any, {}, {});
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
     it('should create legend with only categories present in the data', () => {
       const flows = [
-        { id: '1', category: 'type1', name: 'Flow 1' },
-        { id: '2', category: 'type2', name: 'Flow 2' },
-        { id: '3', category: 'type1', name: 'Flow 3' }
+        { id: '1', category: 'type1', origin: [0, 0], destination: [1, 1], sizeValue: 10 },
+        { id: '2', category: 'type2', origin: [0, 0], destination: [1, 1], sizeValue: 20 },
+        { id: '3', category: 'type1', origin: [0, 0], destination: [1, 1], sizeValue: 15 }
       ];
 
       const colorMap = {
         type1: '#ff0000',
         type2: '#00ff00',
-        type3: '#0000ff' // This should not appear in legend
+        type3: '#0000ff' // This should not appear in the legend
       };
 
       const categoryLabels = {
@@ -31,42 +31,27 @@ describe('Legend Configuration Tests', () => {
         type3: 'Type 3'
       };
 
-      const result = getDynamicFlowLegendConfig(flows, colorMap, categoryLabels, 'Test Dataset');
+      const result = getDynamicFlowLegendConfig(flows, colorMap, categoryLabels);
 
-      expect(result).not.toBeNull();
-      expect(result?.title).toBe('Test Dataset');
-      expect(result?.legendProps.colorMap).toEqual({
-        type1: '#ff0000',
-        type2: '#00ff00'
-      });
-      expect(result?.legendProps.categoryLabels).toEqual({
-        type1: 'Type 1',
-        type2: 'Type 2'
-      });
-    });
-
-    it('should use category name as fallback when category label is not provided', () => {
-      const flows = [
-        { id: '1', category: 'type1', name: 'Flow 1' },
-        { id: '2', category: 'type2', name: 'Flow 2' }
-      ];
-
-      const colorMap = {
-        type1: '#ff0000',
-        type2: '#00ff00'
-      };
-
-      const result = getDynamicFlowLegendConfig(flows, colorMap, {}, 'Test Dataset');
-
-      expect(result?.legendProps.categoryLabels).toEqual({
-        type1: 'type1',
-        type2: 'type2'
+      expect(result).toEqual({
+        title: 'Flow Data',
+        legendProps: {
+          colorMap: {
+            type1: '#ff0000',
+            type2: '#00ff00'
+          },
+          categoryLabels: {
+            type1: 'Type 1',
+            type2: 'Type 2'
+          },
+          showLegend: true
+        }
       });
     });
 
-    it('should return null when no categories match the color map', () => {
+    it('should return undefined when no categories match the color map', () => {
       const flows = [
-        { id: '1', category: 'unknown', name: 'Flow 1' }
+        { id: '1', category: 'unknown', origin: [0, 0], destination: [1, 1], sizeValue: 10 }
       ];
 
       const colorMap = {
@@ -75,85 +60,70 @@ describe('Legend Configuration Tests', () => {
       };
 
       const result = getDynamicFlowLegendConfig(flows, colorMap, {});
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
   });
 
   describe('getDynamicResearchCentersLegendConfig', () => {
-    it('should return null for empty points array', () => {
+    it('should return undefined for empty points array', () => {
       const result = getDynamicResearchCentersLegendConfig([], {}, {});
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
-    it('should return null for null points', () => {
+    it('should return undefined for null points', () => {
       const result = getDynamicResearchCentersLegendConfig(null as any, {}, {});
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
 
     it('should create legend with only categories present in the research centers data', () => {
       const points = [
-        { id: '1', category: 'Hospital', name: 'Hospital A' },
-        { id: '2', category: 'Research Center', name: 'Research Center B' },
-        { id: '3', category: 'Hospital', name: 'Hospital C' }
+        { id: '1', name: 'Center 1', category: 'Hospital', coordinates: [0, 0], sizeValue: 10 },
+        { id: '2', name: 'Center 2', category: 'Research Center', coordinates: [1, 1], sizeValue: 20 },
+        { id: '3', name: 'Center 3', category: 'Hospital', coordinates: [2, 2], sizeValue: 15 }
       ];
 
       const colorMap = {
-        'Hospital': '#ff0000',
+        Hospital: '#ff0000',
         'Research Center': '#00ff00',
-        'Research Facility': '#0000ff' // This should not appear in legend
+        'Research Facility': '#0000ff' // This should not appear in the legend
       };
 
       const categoryLabels = {
-        'Hospital': 'Hospitals',
-        'Research Center': 'Research Centers',
-        'Research Facility': 'Research Facilities'
+        Hospital: 'Hospital',
+        'Research Center': 'Research Center',
+        'Research Facility': 'Research Facility'
       };
 
       const result = getDynamicResearchCentersLegendConfig(points, colorMap, categoryLabels);
 
-      expect(result).not.toBeNull();
-      expect(result?.title).toBe('Research Centers');
-      expect(result?.legendProps.colorMap).toEqual({
-        'Hospital': '#ff0000',
-        'Research Center': '#00ff00'
-      });
-      expect(result?.legendProps.categoryLabels).toEqual({
-        'Hospital': 'Hospitals',
-        'Research Center': 'Research Centers'
+      expect(result).toEqual({
+        title: 'Research Centers',
+        legendProps: {
+          colorMap: {
+            Hospital: '#ff0000',
+            'Research Center': '#00ff00'
+          },
+          categoryLabels: {
+            Hospital: 'Hospital',
+            'Research Center': 'Research Center'
+          },
+          showLegend: true
+        }
       });
     });
 
-    it('should use category name as fallback when category label is not provided', () => {
+    it('should return undefined when no categories match the color map', () => {
       const points = [
-        { id: '1', category: 'Hospital', name: 'Hospital A' },
-        { id: '2', category: 'Research Center', name: 'Research Center B' }
+        { id: '1', name: 'Center 1', category: 'Unknown', coordinates: [0, 0], sizeValue: 10 }
       ];
 
       const colorMap = {
-        'Hospital': '#ff0000',
+        Hospital: '#ff0000',
         'Research Center': '#00ff00'
       };
 
       const result = getDynamicResearchCentersLegendConfig(points, colorMap, {});
-
-      expect(result?.legendProps.categoryLabels).toEqual({
-        'Hospital': 'Hospital',
-        'Research Center': 'Research Center'
-      });
-    });
-
-    it('should return null when no categories match the color map', () => {
-      const points = [
-        { id: '1', category: 'Unknown', name: 'Unknown Facility' }
-      ];
-
-      const colorMap = {
-        'Hospital': '#ff0000',
-        'Research Center': '#00ff00'
-      };
-
-      const result = getDynamicResearchCentersLegendConfig(points, colorMap, {});
-      expect(result).toBeNull();
+      expect(result).toBeUndefined();
     });
   });
 }); 

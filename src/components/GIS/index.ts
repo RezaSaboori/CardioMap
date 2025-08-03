@@ -69,6 +69,7 @@ export {
   getDynamicResearchCentersLegendConfig,
   getFlowDataLegendConfig,
   getDynamicFlowLegendConfig,
+  getDatasetLegendConfig,
   flowDataColorMap,
   flowDataLabels
 } from './legends'; 

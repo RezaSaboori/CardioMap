@@ -94,8 +94,14 @@ export const getColorMode = (
 ): 'continuous' | 'categorical' | 'default' => {
   if (!geodata.length || selectedGeodata === 'nothing') return 'default';
   
-  if (selectedGeodata === 'pop') return 'continuous';
-  if (selectedGeodata === 'health_status') return 'categorical';
+  // Check if the selected field exists in the data
+  const sampleRow = geodata[0];
+  if (!sampleRow || !(selectedGeodata in sampleRow)) return 'default';
+  
+  // Determine type based on the actual data type
+  const value = sampleRow[selectedGeodata];
+  if (typeof value === 'number') return 'continuous';
+  if (typeof value === 'string') return 'categorical';
   
   return 'default';
 };
@@ -105,7 +111,7 @@ export const getColorMode = (
  */
 export const getPopulationColor = (pop: number, colorScale: Array<{ value: number; color: string }>): string => {
   for (let i = colorScale.length - 1; i >= 0; i--) {
-    if (pop >= colorScale[i].value) return colorScale[i].value;
+    if (pop >= colorScale[i].value) return colorScale[i].color;
   }
   return colorScale[0].color;
 };
@@ -123,17 +129,24 @@ export const getRegionColor = (
   const data = regionDataMap[regionName];
   if (!data) return colorPalette.mapForeground;
   
-  if (selectedGeodata === 'pop' && data.pop !== undefined) {
-    // For population, we'll use a simple color scale
+  const value = data[selectedGeodata];
+  if (value === undefined) return colorPalette.mapForeground;
+  
+  // Handle numeric values (continuous)
+  if (typeof value === 'number') {
+    // Use a simple color scale for numeric data
     const colorScale = [
       { value: 0, color: '#f7fafc' },
       { value: 1000000, color: '#bee3f8' },
       { value: 5000000, color: '#3182ce' },
       { value: 10000000, color: '#1a365d' }
     ];
-    return getPopulationColor(data.pop, colorScale);
-  } else if (selectedGeodata === 'health_status' && data.health_status) {
-    return healthStatusColors[data.health_status] || '#ccc';
+    return getPopulationColor(value, colorScale);
+  }
+  
+  // Handle string values (categorical)
+  if (typeof value === 'string') {
+    return healthStatusColors[value] || '#ccc';
   }
   
   return colorPalette.mapForeground;

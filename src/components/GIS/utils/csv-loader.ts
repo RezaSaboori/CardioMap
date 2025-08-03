@@ -250,7 +250,13 @@ export const loadCsvData = async (csvPath: string): Promise<Record<string, any>[
     const response = await fetch(csvPath);
     const csvText = await response.text();
     const result = Papa.parse(csvText, { header: true });
-    return result.data as Record<string, any>[];
+    
+    // Filter out empty rows (rows where all values are empty or undefined)
+    const filteredData = (result.data as Record<string, any>[]).filter(row => {
+      return Object.values(row).some(value => value !== '' && value !== undefined && value !== null);
+    });
+    
+    return filteredData;
   } catch (error) {
     console.error('Error loading or parsing CSV:', error);
     return [];

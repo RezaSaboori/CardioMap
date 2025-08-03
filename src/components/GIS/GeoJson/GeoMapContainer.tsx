@@ -2,6 +2,9 @@ import React, { useState } from 'react';
 import GeoJsonMap from './GeoJsonMap';
 import PointLayer from '../PointData/PointLayer';
 import FlowLayer from '../FlowData/FlowLayer';
+import { GeoDatasetConfig } from '../../../config/geoDataConfig';
+import { DatasetData, createColorScale } from '../../../config/dataLoader';
+import { GeodataRow } from '../utils/geodata-utils';
 
 /**
  * GeoMapContainer: Self-contained, reusable map component.
@@ -19,10 +22,12 @@ import FlowLayer from '../FlowData/FlowLayer';
  * - categoricalSchemes, continuousSchemes: Color schemes (optional)
  * - colorMap, categoryLabels: For points/legend (optional)
  * - children: React children (optional)
+ * - currentDatasetConfig: Current dataset configuration (optional)
+ * - datasetData: Current dataset data (optional)
  */
 export interface GeoMapContainerProps {
   geoJsonData: any;
-  geodata: Record<string, any>[];
+  geodata: GeodataRow[];
   points?: any[];
   flows?: any[];
   popupInfo?: { longitude: number; latitude: number; featureName: string } | null;
@@ -42,6 +47,8 @@ export interface GeoMapContainerProps {
   onRegionClick?: (regionData: Record<string, any>, regionName: string) => void;
   onPointClick?: (point: any) => void;
   onFlowClick?: (flow: any) => void;
+  currentDatasetConfig?: GeoDatasetConfig | null;
+  datasetData?: DatasetData | null;
 }
 
 const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
@@ -55,7 +62,7 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
   beforeOpacity = 0.2,
   afterOpacity = 0.5,
   coloredDataOpacity = 0.6,
-  selectedGeodata = 'pop',
+  selectedGeodata,
   colorMode = 'continuous',
   defaultColors,
   categoricalSchemes,
@@ -66,6 +73,8 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
   onRegionClick,
   onPointClick,
   onFlowClick,
+  currentDatasetConfig,
+  datasetData,
 }) => {
   const [pointPopupInfo, setPointPopupInfo] = useState<{ longitude: number; latitude: number; featureName: string } | null>(null);
 
@@ -89,6 +98,47 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
     }
   };
 
+  // Generate color schemes based on dataset configuration
+  const getColorSchemes = () => {
+    if (!currentDatasetConfig || !datasetData) {
+      return { categoricalSchemes, continuousSchemes };
+    }
+
+    if (currentDatasetConfig.type === 'numeric' && datasetData.minValue !== undefined && datasetData.maxValue !== undefined) {
+      const colorScale = createColorScale(datasetData.minValue, datasetData.maxValue, currentDatasetConfig.colorGradients!);
+      const gradient = [
+        { value: datasetData.minValue, color: currentDatasetConfig.colorGradients![0] },
+        { value: datasetData.minValue + (datasetData.maxValue - datasetData.minValue) * 0.5, color: currentDatasetConfig.colorGradients![1] },
+        { value: datasetData.maxValue, color: currentDatasetConfig.colorGradients![2] },
+      ];
+      
+      return {
+        categoricalSchemes: [],
+        continuousSchemes: [{ column: currentDatasetConfig.dataColumn, gradient }]
+      };
+    } else if (currentDatasetConfig.type === 'categorical' && datasetData.categories) {
+      // Use the colorMap from dataset configuration, don't hardcode fallback colors
+      const colorMap = currentDatasetConfig.colorMap;
+      
+      if (!colorMap) {
+        console.warn('No colorMap provided in dataset configuration for categorical data');
+        return { categoricalSchemes: [], continuousSchemes: [] };
+      }
+      
+      return {
+        categoricalSchemes: [{ column: currentDatasetConfig.dataColumn, colorMap }],
+        continuousSchemes: []
+      };
+    }
+
+    return { categoricalSchemes, continuousSchemes };
+  };
+
+  const { categoricalSchemes: newCategoricalSchemes, continuousSchemes: newContinuousSchemes } = getColorSchemes();
+
+  // Determine appropriate selectedGeodata based on dataset configuration
+  const effectiveSelectedGeodata = selectedGeodata || (currentDatasetConfig?.dataColumn || 'pop');
+
   return (
       <GeoJsonMap
       geoJsonData={geoJsonData}
@@ -99,11 +149,11 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
       beforeOpacity={beforeOpacity}
       afterOpacity={afterOpacity}
       coloredDataOpacity={coloredDataOpacity}
-      selectedGeodata={selectedGeodata}
+      selectedGeodata={effectiveSelectedGeodata}
       colorMode={colorMode}
       defaultColors={defaultColors}
-      categoricalSchemes={categoricalSchemes}
-      continuousSchemes={continuousSchemes}
+      categoricalSchemes={newCategoricalSchemes}
+      continuousSchemes={newContinuousSchemes}
       onRegionClick={onRegionClick}
     >
       {points.length > 0 && (

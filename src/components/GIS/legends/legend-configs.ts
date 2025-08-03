@@ -1,4 +1,6 @@
 import { ColorMap } from '../../../types';
+import { GeoDatasetConfig } from '../../../config/geoDataConfig';
+import { DatasetData } from '../../../config/dataLoader';
 
 // Health Status Color Configuration
 export const healthStatusColorMap: ColorMap = {
@@ -46,34 +48,106 @@ export const getDefaultColors = (colorPalette: any) => ({
   dark: colorPalette.mapForeground,
 });
 
-// Helper function to get geodata legend configuration
-export const getGeodataLegendConfig = (
-  selectedGeodata: 'pop' | 'health_status' | 'nothing',
+// New function to generate legend config from dataset configuration
+export const getDatasetLegendConfig = (
+  config: GeoDatasetConfig,
+  datasetData: DatasetData,
   colorPalette: any
 ) => {
-  if (selectedGeodata === 'health_status') {
+  if (config.type === 'numeric') {
     return {
-      title: 'Health Status',
+      title: config.name,
       legendProps: {
         showLegend: true,
-        colorMap: categoricalSchemes[0].colorMap,
-        categoryLabels: healthStatusLabels,
+        gradient: generateGradientFromConfig(config, datasetData),
+        gradientLabels: { 
+          left: datasetData.minValue?.toString() || '0', 
+          right: datasetData.maxValue?.toString() || '100' 
+        },
       }
     };
-  }
-  
-  if (selectedGeodata === 'pop') {
+  } else if (config.type === 'categorical') {
+    const colorMap = config.colorMap || getCategoricalColorMap();
+    const categoryLabels = getCategoricalLabels();
+    
     return {
-      title: 'Population',
+      title: config.name,
       legendProps: {
         showLegend: true,
-        gradient: continuousSchemes[0].gradient,
-        gradientLabels: populationGradientLabels,
+        colorMap,
+        categoryLabels,
       }
     };
   }
   
   return undefined;
+};
+
+// Helper function to generate gradient from config
+const generateGradientFromConfig = (config: GeoDatasetConfig, datasetData: DatasetData) => {
+  if (!config.colorGradients || datasetData.minValue === undefined || datasetData.maxValue === undefined) {
+    console.warn('Falling back to population gradient due to missing config:', { 
+      hasColorGradients: !!config.colorGradients, 
+      minValue: datasetData.minValue, 
+      maxValue: datasetData.maxValue 
+    });
+    return populationGradient; // fallback
+  }
+  
+  const [color1, color2, color3] = config.colorGradients;
+  const range = datasetData.maxValue - datasetData.minValue;
+  
+  console.log('Generating gradient from config:', { color1, color2, color3, minValue: datasetData.minValue, maxValue: datasetData.maxValue });
+  
+  return [
+    { value: datasetData.minValue, color: color1 },
+    { value: datasetData.minValue + range * 0.5, color: color2 },
+    { value: datasetData.maxValue, color: color3 },
+  ];
+};
+
+// Helper function to get categorical color map
+const getCategoricalColorMap = (): Record<string, string> => {
+  return {
+    good: '#4caf50', // green
+    medium: '#ffeb3b', // yellow
+    poor: '#ff9800', // orange
+  };
+};
+
+// Helper function to get categorical labels
+const getCategoricalLabels = (): Record<string, string> => {
+  return {
+    good: 'Good',
+    medium: 'Medium', 
+    poor: 'Poor'
+  };
+};
+
+// Helper function to get geodata legend configuration (legacy support)
+export const getGeodataLegendConfig = (
+  selectedGeodata: string,
+  colorPalette: any,
+  continuousSchemes?: Array<{ column: string; gradient: Array<{ value: number; color: string }> }>
+) => {
+  if (selectedGeodata === 'nothing' || !continuousSchemes || continuousSchemes.length === 0) {
+    return undefined;
+  }
+
+  // Find the matching continuous scheme for the selected geodata
+  const matchingScheme = continuousSchemes.find(scheme => scheme.column === selectedGeodata);
+  if (!matchingScheme) {
+    return undefined;
+  }
+
+  return {
+    title: selectedGeodata.charAt(0).toUpperCase() + selectedGeodata.slice(1), // Capitalize first letter
+    legendProps: {
+      showLegend: true,
+      gradient: matchingScheme.gradient,
+      gradientLabels: populationGradientLabels,
+    }
+  };
 };
 
 // Helper function to get research centers legend configuration
@@ -98,13 +172,13 @@ export const getDynamicResearchCentersLegendConfig = (
   categoryLabels: { [key: string]: string } = {}
 ) => {
   if (!points || points.length === 0) {
-    return null;
+    return undefined;
   }
 
-  // Extract unique categories from the research centers data
+  // Get unique categories from actual data
   const uniqueCategories = [...new Set(points.map(point => point.category))];
   
-  // Create a filtered color map that only includes categories present in the data
+  // Filter color map to only include categories that exist in the data
   const filteredColorMap: ColorMap = {};
   const filteredCategoryLabels: { [key: string]: string } = {};
   
@@ -115,9 +189,9 @@ export const getDynamicResearchCentersLegendConfig = (
     }
   });
 
-  // If no valid categories found, return null
+  // Return undefined if no valid categories found
   if (Object.keys(filteredColorMap).length === 0) {
-    return null;
+    return undefined;
   }
 
   return {
@@ -158,7 +232,7 @@ export const getFlowDataLegendConfig = (
   };
 };
 
-// Helper function to dynamically generate flow legend configuration based on actual flow data
+// Helper function to dynamically generate flow legend configuration based on actual data
 export const getDynamicFlowLegendConfig = (
   flows: any[],
   colorMap: ColorMap,
@@ -166,13 +240,13 @@ export const getDynamicFlowLegendConfig = (
   datasetName: string = 'Flow Data'
 ) => {
   if (!flows || flows.length === 0) {
-    return null;
+    return undefined;
   }
 
-  // Extract unique categories from the flow data
+  // Get unique categories from actual data
   const uniqueCategories = [...new Set(flows.map(flow => flow.category))];
   
-  // Create a filtered color map that only includes categories present in the data
+  // Filter color map to only include categories that exist in the data
   const filteredColorMap: ColorMap = {};
   const filteredCategoryLabels: { [key: string]: string } = {};
   
@@ -183,9 +257,9 @@ export const getDynamicFlowLegendConfig = (
     }
   });
 
-  // If no valid categories found, return null
+  // Return undefined if no valid categories found
   if (Object.keys(filteredColorMap).length === 0) {
-    return null;
+    return undefined;
   }
 
   return {

@@ -56,8 +56,8 @@ const GeodataVisualizer: React.FC<GeodataVisualizerProps> = ({
   const { enrichedGeoJsonData } = enrichmentResult;
   
   // Get color schemes for the selected geodata
-  const categoricalScheme = categoricalSchemes.find(s => s.column === selectedGeodata);
-  const continuousScheme = continuousSchemes.find(s => s.column === selectedGeodata);
+  const categoricalScheme = categoricalSchemes.find(s => s && s.column === selectedGeodata);
+  const continuousScheme = continuousSchemes.find(s => s && s.column === selectedGeodata);
   
   // Get theme colors
   const colorPalette = getColorPalette();
