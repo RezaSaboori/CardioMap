@@ -486,7 +486,57 @@ const App: React.FC = () => {
           <div className="data-cards-section">
             <CardsGrid
               title={selectedRegionData?.regionName || selectedPointData?.pointName || selectedFlowData?.flowName || 'Select a region, marker, or flow to view data'}
-              data={selectedRegionData?.data || selectedPointData?.data || selectedFlowData?.data || {}}
+              cards={(() => {
+                const data = selectedRegionData?.data || selectedPointData?.data || selectedFlowData?.data;
+                if (!data) return [];
+                
+                // Convert data object to cards format
+                const cards = [];
+                for (const [key, value] of Object.entries(data)) {
+                  if (key === 'name' || value === null || value === undefined || value === '') continue;
+                  
+                  let title = key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' ');
+                  let unit = '';
+                  let info = '';
+                  
+                  // Define units and info based on field names
+                  if (key === 'pop') {
+                    title = 'Population';
+                    unit = 'people';
+                    info = 'Total population of the province';
+                  } else if (key === 'health_status') {
+                    title = 'Health Status';
+                    info = 'Overall health status of the province';
+                  } else if (key === 'Doctors per 10k') {
+                    unit = 'doctors';
+                    info = 'Healthcare professionals per 10,000 residents';
+                  } else if (key === 'Hospital Beds') {
+                    unit = 'beds';
+                    info = 'Total number of hospital beds';
+                  } else if (key === 'Area') {
+                    unit = 'km²';
+                    info = 'Province area in square kilometers';
+                  } else if (key === 'coordinates') {
+                    title = 'Coordinates';
+                    info = 'Geographic coordinates (lat, lng)';
+                  } else if (key === 'type' || key === 'category') {
+                    title = 'Type';
+                    info = 'Category or type of the data point';
+                  } else if (key === 'size' || key === 'size_value') {
+                    title = 'Size';
+                    info = 'Relative size or importance value';
+                  }
+                  
+                  cards.push({
+                    title,
+                    value: value,
+                    unit,
+                    info
+                  });
+                }
+                
+                return cards;
+              })()}
               onClose={() => {}} // No close functionality needed
             />
           </div>
