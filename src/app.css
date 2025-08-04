@@ -1,72 +1,48 @@
 #root {
   width: 100%;
   margin: 0 auto;
-  text-align: center;
   box-sizing: border-box;
-  display: block; /* Override any flex inheritance */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background-color: var(--color-gray1);
+  color: var(--color-gray12);
+  font-family: var(--font-family-system);
+}
+
+.app-wrapper {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--color-gray1);
+  color: var(--color-gray12);
+  font-family: var(--font-family-system);
+  transition: background-color var(--motion-duration-normal) var(--motion-easing-easeInOut), 
+              color var(--motion-duration-normal) var(--motion-easing-easeInOut);
 }
 
 .app-container {
   display: flex;
+  margin-top: var(--spacing-2xl);
+  margin-bottom: var(--spacing-2xl);
   flex-direction: column;
   align-items: center;
   gap: var(--spacing-xl);
-  min-height: 100vh;
+  min-height: calc(100vh - var(--spacing-4xl));
   box-sizing: border-box;
-  width: 100%;
-  overflow: hidden; /* Prevent any overflow from children */
+  width: 80%;
+  max-width: 1400px;
+  overflow: hidden;
+  background-color: var(--color-gray2);
+  border-radius: var(--border-radius-container-lg);
+  padding: var(--spacing-xl);
+  transition: all var(--motion-duration-normal) var(--motion-easing-easeInOut);
+  height: calc(100vh - var(--spacing-4xl));
 }
-
-.controls {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-lg);
-  flex-wrap: wrap;
-  padding: var(--spacing-lg);
-  background-color: rgba(255, 255, 255, var(--glass-opacity-light));
-  backdrop-filter: blur(var(--glass-backdrop-blur));
-  border-radius: var(--border-radius-container-sm);
-  border: var(--border-width-hairline) solid rgba(255, 255, 255, var(--glass-border-opacity));
-  box-shadow: var(--elevation-2);
-}
-
-.controls label {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-gray10);
-  white-space: nowrap;
-}
-
-.controls select {
-  min-width: 120px;
-}
-
-
-
-/* Optional: If you want the map to fill the space above the legend */
-.map-inner {
-  flex: 1 1 auto;
-  min-height: 0;
-  min-width: 0;
-  display: flex;
-  height: 100%;
-}
-
-/* Fade-in animation for map remount */
-.map-fade-in {
-  opacity: 0;
-  animation: mapFadeIn 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes mapFadeIn {
-  to {
-    opacity: 1;
-  }
-}
-
-/* Legend styles are now handled by the modular legend components */
-/* The LegendContainer, LegendRow, LegendGroup, and Legend components 
-   have their own CSS in src/components/legends/legend.css */
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
@@ -76,19 +52,10 @@
   
   .app-container {
     gap: var(--spacing-lg);
-  }
-  
-  .controls {
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .controls > div {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
+    width: 90%;
+    padding: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
   }
 }
 
@@ -97,93 +64,11 @@
     padding: var(--spacing-sm);
   }
   
-  .controls {
-    padding: var(--spacing-sm);
-    border-radius: var(--border-radius-container-xs);
-  }
-}
-
-.gis-container {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  width: 80%;
-  height: calc(100vh - 120px); /* Adjust for controls and padding */
-  margin-top: 20px;
-  padding: var(--spacing-xl);
-  background-color: #000;
-  box-sizing: border-box;
-  overflow: hidden;
-  position: relative; /* Ensure proper stacking context */
-}
-
-.map-container {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  min-height: 0; /* Allow grid item to shrink */
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.data-cards-section {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  height: 100%;
-  min-height: 0; /* Allow grid item to shrink */
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  width: 100%;
-  box-sizing: border-box;
-  max-width: 100%;
-  position: relative; /* Ensure proper stacking context */
-  padding: 0; /* Remove padding to let gis-container handle it */
-}
-
-
-[data-theme="dark"] .data-cards-section {
-  background: rgba(30, 30, 30, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: #ffffff;
-}
-
-@media (max-width: 768px) {
-  .gis-container {
-    grid-template-columns: 1fr;
-    grid-template-rows: 50% 50%;
-    height: auto;
-    gap: 16px;
-  }
-  
-  .map-container {
-    height: 60vh;
-  }
-  
-  .data-cards-section {
-    padding: 16px;
-    height: auto;
-    max-height: 40vh;
-  }
-}
-
-@media (max-width: 480px) {
-  .gis-container {
-    gap: 12px;
-    margin-top: 12px;
-    grid-template-rows: 50% 50%;
-  }
-  
-  .map-container {
-    height: 60vh;
-  }
-  
-  .data-cards-section {
-    padding: 12px;
-    max-height: 40vh;
+  .app-container {
+    width: 95%;
+    padding: var(--spacing-md);
+    margin-top: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
   }
 }
 

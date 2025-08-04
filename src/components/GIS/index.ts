@@ -1,6 +1,9 @@
 // Export main components from organized subdirectories
 export { default as GeoMapContainer } from './GeoJson/GeoMapContainer';
 export { default as CardsGrid } from './CardsGrid';
+export { default as ThemeToggle } from './ThemeToggle';
+export { default as Controls } from './Controls';
+export { default as GISDashboard } from './GISDashboard';
 
 // Export GeoJSON components
 export { default as GeoJsonMap } from './GeoJson/GeoJsonMap';

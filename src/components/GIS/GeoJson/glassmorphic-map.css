@@ -7,7 +7,6 @@
     overflow: hidden;
     background: transparent; /* Transparent background */
     border-radius: var(--border-radius-container-md);
-    box-shadow: var(--elevation-4);
 }
 
 /* Apply glassmorphic effect only to markers, not the map itself */

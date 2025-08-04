@@ -25,10 +25,10 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
   try {
     // Load GeoJSON data - use dynamic import with proper path resolution
     let geoJsonData;
-    // Fix the path to be relative to src/ directory, not src/config/
-    const geoJsonPath = config.geoJsonPath.startsWith('./') 
-      ? config.geoJsonPath.replace('./', '../../../') 
-      : `../../../${config.geoJsonPath}`;
+    // Fix the path to be relative to dataLoader location (src/components/GIS/GeoData/)
+    // config.geoJsonPath is like '../../datasets/geojson/Iran.json' (relative to src/components/GIS/)
+    // dataLoader is in src/components/GIS/GeoData/, so we need to go up one more level
+    const geoJsonPath = config.geoJsonPath.replace('../', '../../');
     
     try {
       const geoJsonModule = await import(/* @vite-ignore */ geoJsonPath);
@@ -139,13 +139,24 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
         .map((row: Record<string, any>) => parseFloat(row[config.dataColumn]))
         .filter((value: number) => !isNaN(value));
       
+      console.log(`Numeric data calculation for ${config.name}:`, {
+        dataColumn: config.dataColumn,
+        totalRows: csvData.length,
+        validValues: values.length,
+        sampleValues: values.slice(0, 5)
+      });
+      
       if (values.length > 0) {
         minValue = Math.min(...values);
         maxValue = Math.max(...values);
+        console.log(`Calculated min/max for ${config.name}:`, { minValue, maxValue });
+      } else {
+        console.warn(`No valid numeric values found for ${config.name} in column ${config.dataColumn}`);
       }
     } else if (config.type === 'categorical') {
       const uniqueCategories = [...new Set(csvData.map((row: Record<string, any>) => row[config.dataColumn]))];
       categories = uniqueCategories.filter((cat: any) => cat && cat !== '') as string[];
+      console.log(`Categorical data for ${config.name}:`, { categories });
     }
 
     return {
