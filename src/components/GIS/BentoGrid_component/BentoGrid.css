@@ -1,0 +1,49 @@
+.bento-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--bento-grid-columns, 4), 1fr);
+  grid-auto-rows: minmax(160px, auto);
+  gap: 24px;
+  padding: 24px;
+  max-width: 1280px;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  position: relative; /* Create stacking context for canvas and cards */
+  background: rgba(0,0,0,0); /* Match the app background to hide shader outside cards */
+  --card-transition-duration: 0.4s;
+  --card-transition-timing: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bento-card {
+  position: relative;
+  border-radius: var(--card-border-radius, 32px);
+  overflow: hidden;
+}
+
+
+.bento-grid-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.card-mask-svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0; /* Behind everything */
+  pointer-events: none;
+  opacity: 0; /* Hide visually but keep mask definitions available */
+}
+
+.bento-grid-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1; /* Same level as cards */
+  pointer-events: none;
+}

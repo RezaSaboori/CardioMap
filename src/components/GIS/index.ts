@@ -4,6 +4,7 @@ export { default as CardsGrid } from './CardsGrid';
 export { default as ThemeToggle } from './ThemeToggle';
 export { default as Controls } from './Controls';
 export { default as GISDashboard } from './GISDashboard';
+export { default as DropdownMenu } from './DropdownMenu';
 
 // Export GeoJSON components
 export { default as GeoJsonMap } from './GeoJson/GeoJsonMap';

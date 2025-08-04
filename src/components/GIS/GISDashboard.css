@@ -12,13 +12,19 @@
 /* Controls Section */
 .controls-section {
   display: flex;
-  background: var(--background-color);
-  border-bottom: 1px solid var(--border-color);
   padding: var(--spacing-md);
-  z-index: 10;
+  z-index: 1000;
   width: 80%;
   box-sizing: border-box;
   flex-shrink: 0;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  direction: rtl;
 }
 
 /* Main Content Section - Grid Layout */

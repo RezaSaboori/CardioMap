@@ -2,6 +2,7 @@ import React from 'react';
 import { geoDataConfig } from '../../config/geoDataConfig';
 import { getMapGeoJsonPath, getMapDisplayName } from '../../config/geoJsonConfig';
 import { getPointDataConfigNames } from '../../config/pointDataConfig';
+import DropdownMenu from './DropdownMenu';
 
 export interface ControlsProps {
   selectedDataset: string;
@@ -60,38 +61,85 @@ const Controls: React.FC<ControlsProps> = ({
 
   // Get the current combined value
   const getCombinedValue = () => {
-    if (dataType === 'FlowData') return 'FlowData';
+    if (dataType === 'FlowData') return 'Disease Path';
     if (selectedDataset !== 'nothing') {
       // Check if it's a point data selection
       if (selectedDataset.startsWith('pointdata:')) {
-        return selectedDataset;
+        // Extract the actual name from pointdata:Research Centers -> Research Centers
+        return selectedDataset.replace('pointdata:', '');
       }
       return selectedDataset;
     }
-    return 'nothing';
+    return 'No Data';
   };
 
   return (
     <div className="controls">
-      <label htmlFor="data-select">Select Data:</label>
-      <select id="data-select" value={getCombinedValue()} onChange={handleCombinedDataChange}>
-        {dataOptions.map(option => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <label htmlFor="map-select">Select a Map:</label>
-      <select id="map-select" onChange={onMapChange} value={mapId}>
-        {mapIds.map(id => {
-          const displayName = getMapDisplayName(id);
-          return (
-            <option key={id} value={id}>
-              {displayName}
-            </option>
-          );
-        })}
-      </select>
+      <h2 style={{
+        fontFamily: 'var(--font-family-persian)',
+        fontSize: 'var(--font-size-xl)',
+        fontWeight: 'var(--font-weight-medium)',
+        color: 'var(--color-gray11)',
+        textAlign: 'center',
+        margin: '0',
+        direction: 'rtl',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 'var(--spacing-sm)',
+        flexWrap: 'nowrap'
+      }}>
+                 نقشه توزیع{' '}
+         <DropdownMenu
+           value={getCombinedValue()}
+                       onSelect={(value: string) => {
+              const event = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
+              handleCombinedDataChange(event);
+            }}
+           minWidth={120}
+           headerHeight={45}
+           fontSize="var(--font-size-lg)"
+           finalBorderRadius={20}
+           direction="rtl"
+           textColor="var(--color-gray12)"
+           gradientColors={[['var(--color-gray1)', 0.3], ['var(--color-gray1)', 0.01]]}
+           shadow="var(--elevation-2)"
+           hoverBackground={['var(--color-gray12)', 0.15]}
+         >
+           {dataOptions.map(option => (
+             <li key={option.value} data-value={option.value}>
+               {option.label}
+             </li>
+           ))}
+         </DropdownMenu>
+         {' '}نسبت به{' '}
+                   <DropdownMenu
+            value={getMapDisplayName(mapId)}
+            onSelect={(value: string) => {
+              const event = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
+              onMapChange(event);
+            }}
+           minWidth={120}
+           headerHeight={45}
+           fontSize="var(--font-size-lg)"
+           finalBorderRadius={20}
+           direction="rtl"
+           textColor="var(--color-gray12)"
+           gradientColors={[['var(--color-gray1)', 0.3], ['var(--color-gray1)', 0.01]]}
+           shadow="var(--elevation-2)"
+           hoverBackground={['var(--color-gray12)', 0.15]}
+         >
+           {mapIds.map(id => {
+             const displayName = getMapDisplayName(id);
+             return (
+               <li key={id} data-value={id}>
+                 {displayName}
+               </li>
+             );
+           })}
+         </DropdownMenu>
+
+      </h2>
     </div>
   );
 };

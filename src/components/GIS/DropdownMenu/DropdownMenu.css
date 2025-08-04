@@ -1,0 +1,109 @@
+.dropdown-menu-container {
+    box-sizing: border-box;
+    /* Styles for the container, like width, can be set via props. */
+    /* font-size from props will be set here */
+}
+
+.custom-dropdown-menu {
+    box-sizing: border-box;
+    position: relative;
+    width: 100%;
+    
+    /* background-color is now controlled by a prop */
+    backdrop-filter: blur(15px) brightness(1.2) saturate(1.5);
+    -webkit-backdrop-filter: blur(15px) brightness(1.2) saturate(1.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    
+    /* box-shadow is now controlled by a prop */
+    overflow: hidden; 
+    
+    /* height and border-radius are set via inline styles from props */
+    transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                border-radius 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dropdown-menu-header {
+    /* padding is set inline for now, but could be prop-based */
+    cursor: pointer;
+    user-select: none; 
+    /* color is now controlled by a prop */
+    position: relative; 
+    z-index: 10;
+    /* Ensure header properly constrains its children */
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.dropdown-menu-header-title {
+    font-weight: 500;
+}
+
+.dropdown-menu-arrow {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    /* width and height are now controlled by props */
+    background-size: 50%;
+    background-repeat: no-repeat;
+    background-position: center;
+    border-radius: 50%;
+    /* background-color is now controlled by a prop */
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Ensure arrow stays within container bounds */
+    max-width: 100%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.dropdown-menu-arrow svg {
+    width: 40%;
+    height: 40%;
+    fill: var(--arrow-color);
+}
+        
+.custom-dropdown-menu.expanded .dropdown-menu-arrow {
+    transform: rotate(180deg);
+}
+
+.dropdown-menu-list {
+    list-style: none;
+    margin: 0;
+    padding: 6px 6px;
+    box-sizing: border-box;
+    /* max-height is set via inline styles */
+    overflow-y: auto;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out 0.2s;
+    direction: ltr;
+}
+        
+.custom-dropdown-menu.expanded .dropdown-menu-list {
+    opacity: 1;
+}
+
+.dropdown-menu-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dropdown-menu-list::-webkit-scrollbar-track {
+    background: transparent;
+    margin-bottom: var(--final-border-radius, 16px);
+}
+
+.dropdown-menu-list::-webkit-scrollbar-thumb {
+    background-color: var(--color-gray6);
+    border-radius: 4px;
+}
+
+.dropdown-menu-list li {
+    border-radius: 16px;
+    padding: 6px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    /* font-size is inherited from container, color is inherited from ul */
+}
+
+.dropdown-menu-list li:hover {
+    background-color: var(--hover-bg-color);
+} 

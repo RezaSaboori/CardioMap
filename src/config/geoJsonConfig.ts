@@ -16,7 +16,7 @@ export const geoJsonConfig: Record<string, GeoJsonMapConfig> = {
     geojson: '../../datasets/geojson/Iran.json', 
     csv: IranProvincesSampleCsv,
     hoverTag: 'name:fa',
-    displayName: 'ایران'
+    displayName: 'کل کشور'
   },
   Tehran: { 
     geojson: '../../datasets/geojson/Tehran.json', 
