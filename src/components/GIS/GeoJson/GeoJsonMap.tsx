@@ -57,6 +57,7 @@ interface GeoJsonMapProps {
     defaultColors?: { light: string; dark: string };
     categoricalSchemes?: ColorScheme["categorical"][];
     continuousSchemes?: ColorScheme["continuous"][];
+    hoverTag?: string; // Tag for hover display (e.g., 'name:fa', 'name:en')
     onRegionClick?: (regionData: Record<string, any>, regionName: string) => void;
 }
 
@@ -83,6 +84,7 @@ const GeoJsonMap = ({
     defaultColors,
     categoricalSchemes = [],
     continuousSchemes = [],
+    hoverTag = "name:en", // Default hover tag
     onRegionClick,
 }: GeoJsonMapProps) => {
     const mapRef = useRef<MapRef>(null);
@@ -134,14 +136,15 @@ const GeoJsonMap = ({
     const handleRegionClick = useCallback((event: MapLayerMouseEvent) => {
         const feature = event.features?.[0];
         if (feature && onRegionClick) {
-            const regionName = feature.properties?.tags?.["name:en"] || 
+            const regionName = feature.properties?.tags?.[hoverTag] || 
+                             feature.properties?.tags?.["name:en"] || 
                              feature.properties?.name || 
                              feature.properties?.NAME || 
                              "Unknown Region";
             const regionData = feature.properties || {};
             onRegionClick(regionData, regionName);
         }
-    }, [onRegionClick]);
+    }, [onRegionClick, hoverTag]);
 
     // Auto-fit bounds when data changes
     useEffect(() => {

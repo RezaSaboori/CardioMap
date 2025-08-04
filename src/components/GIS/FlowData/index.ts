@@ -1,5 +1,6 @@
 // Flow data related components and utilities
 export { default as FlowLayer } from './FlowLayer';
+export { default as FlowData } from './FlowData';
 
 // Export interfaces
 export interface FlowData {

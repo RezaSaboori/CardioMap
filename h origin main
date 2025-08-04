@@ -1,0 +1,3 @@
+[33mc0b78fb[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m)[m feat: add GeoJSON configuration refactor and map-dataset compatibility system
+[33mf02194b[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add comprehensive geodata configuration system and documentation
+[33mf0e3dd5[m feat: enhance CardsGrid component with new props structure and add healthcare data columns

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import GeoJsonMap from './GeoJsonMap';
 import PointLayer from '../PointData/PointLayer';
-import FlowLayer from '../FlowData/FlowLayer';
+import FlowData from '../FlowData/FlowData';
 import { GeoDatasetConfig } from '../../../config/geoDataConfig';
 import { DatasetData, createColorScale } from '../../../config/dataLoader';
 import { GeodataRow } from '../utils/geodata-utils';
+import { FlowDataConfig } from '../../../config/flowDataConfig';
 
 /**
  * GeoMapContainer: Self-contained, reusable map component.
@@ -30,6 +31,7 @@ export interface GeoMapContainerProps {
   geodata: GeodataRow[];
   points?: any[];
   flows?: any[];
+  flowConfig?: FlowDataConfig | null;
   popupInfo?: { longitude: number; latitude: number; featureName: string } | null;
   fillColor?: string;
   borderColor?: string;
@@ -57,6 +59,7 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
   geodata,
   points = [],
   flows = [],
+  flowConfig = null,
   popupInfo,
   fillColor,
   borderColor,
@@ -171,13 +174,11 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
           enablePulsing={true}
         />
       )}
-      {flows.length > 0 && (
-        <FlowLayer
-          flows={flows}
-          colorMap={colorMap}
-          onFlowHover={handlePointHover}
+      {flowConfig && (
+        <FlowData
+          config={flowConfig}
           onFlowClick={handleFlowClick}
-          categoryLabels={categoryLabels}
+          onFlowHover={handlePointHover}
           minSize={2}
           maxSize={12}
           enableAnimation={true}

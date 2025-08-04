@@ -1,0 +1,4 @@
+[33mf02194b[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Add comprehensive geodata configuration system and documentation
+[33mf0e3dd5[m feat: enhance CardsGrid component with new props structure and add healthcare data columns
+[33m71d417d[m refactor: reorganize GIS components structure for better modularity
+[33mc536e58[m[33m ([m[1;33mtag: [m[1;33mv1.0.0[m[33m)[m Initial commit: GIS Dashboard project

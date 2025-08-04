@@ -98,7 +98,7 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
   
   // Performance optimization flags
   const PERFORMANCE_OPTIMIZATIONS = {
-    MAX_PARTICLES: 50, // Limit number of animated particles
+    MAX_PARTICLES: flows.length, // One particle per flow
     REDUCE_CURVE_POINTS: flows.length > 100, // Reduce curve complexity for large datasets
     SIMPLIFIED_GLOW: flows.length > 50, // Use simplified glow effects for large datasets
     BATCH_UPDATES: true, // Batch particle updates
@@ -118,18 +118,24 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
   
   // Pre-calculate curve points for all flows with performance optimization
   const flowCurvePoints = useMemo(() => {
-    const steps = PERFORMANCE_OPTIMIZATIONS.ENABLE_OPTIMIZATIONS ? 10 : 20;
-    return flows.map(flow => {
+    const curvePointsArray = flows.map(flow => {
       const curvePoints = createCurvePoints(flow.origin, flow.destination);
-      // Reduce points if performance optimization is enabled
-      if (PERFORMANCE_OPTIMIZATIONS.ENABLE_OPTIMIZATIONS) {
-        return curvePoints.filter((_, index) => index % 2 === 0);
-      }
+      // Ensure we have enough points for smooth animation
       return curvePoints;
     });
+    
+    console.log('Flow curve points:', curvePointsArray.map((points, index) => ({
+      flowIndex: index,
+      flowId: flows[index]?.id,
+      pointsCount: points.length,
+      firstPoint: points[0],
+      lastPoint: points[points.length - 1]
+    })));
+    
+    return curvePointsArray;
   }, [flows]);
   
-  // Initialize particles for each flow with performance limits
+  // Initialize particles for each flow
   useEffect(() => {
     if (!enableAnimation) {
       setParticles([]);
@@ -137,10 +143,9 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
     }
 
     const newParticles: AnimatedParticle[] = [];
-    const maxParticles = Math.min(flows.length, PERFORMANCE_OPTIMIZATIONS.MAX_PARTICLES);
     
-    flows.slice(0, maxParticles).forEach((flow, flowIndex) => {
-      // Create only one particle per flow (limited by performance)
+    flows.forEach((flow, flowIndex) => {
+      // Create one particle per flow
       newParticles.push({
         id: `particle-${flowIndex}`,
         flowId: flow.id,
@@ -148,6 +153,11 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
         speed: 0.5 // All particles have the same speed
       });
     });
+    
+    console.log(`Created ${newParticles.length} particles for ${flows.length} flows`);
+    console.log('Particles:', newParticles);
+    console.log('Flows:', flows.map(f => ({ id: f.id, category: f.category })));
+    
     setParticles(newParticles);
   }, [flows, enableAnimation]);
 
@@ -179,7 +189,7 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [enableAnimation, particles.length]);
+  }, [enableAnimation]); // Remove particles.length dependency
 
   // Optimized point calculation using pre-calculated curve points
   const getPointAlongCurve = useCallback((curvePoints: [number, number][], t: number): [number, number] => {
@@ -200,10 +210,21 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
 
   // Get display name from flow data
   const getDisplayName = useCallback((flow: FlowData): string => {
-    // Try to get the value from the specified column
-    const columnValue = (flow as any)[nameColumn];
-    if (columnValue) {
-      return String(columnValue);
+    // Use the category field which contains the raw value (e.g., "type1", "type2")
+    const categoryValue = flow.category;
+    console.log('getDisplayName - flow:', flow);
+    console.log('getDisplayName - categoryValue:', categoryValue);
+    console.log('getDisplayName - categoryLabels:', categoryLabels);
+    
+    if (categoryValue) {
+      // Check if we have a category label mapping for this value
+      if (categoryLabels[categoryValue]) {
+        console.log('getDisplayName - found label:', categoryLabels[categoryValue]);
+        return categoryLabels[categoryValue];
+      }
+      console.log('getDisplayName - no label found, using raw value');
+      // Fallback to the raw value
+      return String(categoryValue);
     }
     // Fallback to flow.name
     if (flow.name) {
@@ -211,7 +232,7 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
     }
     // Final fallback
     return `Flow ${flow.id}`;
-  }, [nameColumn]);
+  }, [categoryLabels]);
 
   // Create GeoJSON data for the flow lines with curved paths
   const flowLinesGeoJSON = useMemo(() => {
@@ -314,18 +335,43 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
     const handleMapClick = (e: any) => {
       console.log('=== MAP CLICK ===');
       console.log('Click point:', e.point);
-      const features = map.queryRenderedFeatures(e.point, { layers: ['flow-lines-base'] });
+      
+      // Query for features at the click point (try both layers)
+      const features = map.queryRenderedFeatures(e.point, { layers: ['flow-lines-clickable', 'flow-lines-base'] });
       console.log('Features found:', features);
+      
       if (features.length > 0 && onFlowClick) {
         const feature = features[0];
         console.log('Feature properties:', feature.properties);
+        
+        // Try to get flowId from properties
         const flowId = feature.properties?.flowId;
         if (flowId) {
           const flow = flows.find(f => f.id === flowId);
           if (flow) {
             console.log('Flow found, calling onFlowClick:', flow);
             onFlowClick(flow);
+            return;
           }
+        }
+        
+        // Fallback: try to find flow by coordinates
+        const clickLngLat = e.lngLat;
+        const clickedFlow = flows.find(flow => {
+          // Check if click is near the flow line
+          const curvePoints = createCurvePoints(flow.origin, flow.destination);
+          return curvePoints.some(point => {
+            const distance = Math.sqrt(
+              Math.pow(point[0] - clickLngLat.lng, 2) + 
+              Math.pow(point[1] - clickLngLat.lat, 2)
+            );
+            return distance < 0.01; // Within ~1km
+          });
+        });
+        
+        if (clickedFlow) {
+          console.log('Flow found by coordinates, calling onFlowClick:', clickedFlow);
+          onFlowClick(clickedFlow);
         }
       }
     };
@@ -346,6 +392,22 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
       {/* Draw flow lines using map's native line layers */}
       {flowLinesGeoJSON && (
         <Source id="flow-lines" type="geojson" data={flowLinesGeoJSON} key="flow-lines">
+          {/* Invisible clickable layer for better click detection */}
+          <Layer
+            id="flow-lines-clickable"
+            type="line"
+            layout={{
+              'line-cap': 'round',
+              'line-join': 'round'
+            }}
+            paint={{
+              'line-color': 'transparent',
+              'line-width': ['interpolate', ['linear'], ['get', 'sizeValue'], 0, minSize + 4, 1, maxSize + 4],
+              'line-opacity': 0
+            }}
+            filter={['has', 'category']}
+            key="flow-lines-clickable"
+          />
           {/* Base line layer */}
           <Layer
             id="flow-lines-base"
@@ -362,7 +424,7 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
                 ['==', ['get', 'category'], 'type3'], colorMap.type3 || '#45b7d1',
                 '#cccccc'
               ],
-              'line-width': ['interpolate', ['linear'], ['get', 'sizeValue'], 0, 2, 100, 12],
+              'line-width': ['interpolate', ['linear'], ['get', 'sizeValue'], 0, minSize, 1, maxSize],
               'line-opacity': 0.5
             }}
             filter={['has', 'category']}
@@ -392,11 +454,23 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
       {/* Performance-optimized animated particles moving along flow lines */}
       {enableAnimation && particles.map((particle) => {
         const flow = flows.find(f => f.id === particle.flowId);
-        if (!flow) return null;
+        if (!flow) {
+          console.warn(`No flow found for particle ${particle.id} with flowId ${particle.flowId}`);
+          return null;
+        }
         
         const flowColor = colorMap[flow.category] || fallbackColor;
         const flowSize = normalizeSize(flow.sizeValue);
-        const curvePoints = flowCurvePoints[flows.findIndex(f => f.id === particle.flowId)];
+        
+        // Get the correct curve points for this flow
+        const flowIndex = flows.findIndex(f => f.id === particle.flowId);
+        const curvePoints = flowCurvePoints[flowIndex];
+        
+        if (!curvePoints || curvePoints.length === 0) {
+          console.warn(`No curve points found for flow ${particle.flowId}`);
+          return null;
+        }
+        
         const [longitude, latitude] = getPointAlongCurve(curvePoints, particle.progress);
         
         // Adaptive glow effect based on performance optimizations

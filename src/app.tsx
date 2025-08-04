@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { 
   GeoMapContainer, 
   CardsGrid, 
-  loadFlowsFromCsv,
   Legend, 
   LegendGroup, 
   LegendRow, 
@@ -40,6 +39,10 @@ import { POINT_DATA_CONFIGS, getPointDataConfig, getPointDataConfigNames } from 
 import { loadPointData, ProcessedPointData } from './utils/pointDataLoader';
 import { getPointDataLegendConfig, convertToLegendGroup, getPointDataColorMap, getPointDataCategoryLabels } from './components/GIS/utils/pointDataLegendUtils';
 import { generatePointCardData, generatePointCardTitle } from './components/GIS/utils/pointDataCardUtils';
+import { generateFlowCardData, generateFlowCardTitle } from './components/GIS/utils/flowDataCardUtils';
+import { FLOW_DATA_CONFIGS, getFlowDataConfig, getFlowDataConfigNames } from './config/flowDataConfig';
+import { loadFlowData, ProcessedFlowData } from './utils/flowDataLoader';
+import { getFlowDataColorMap, getFlowDataCategoryLabels } from './config/flowDataConfig';
 import './app.css';
 import provinces from './datasets/geojson/Iran.json';
 import * as turf from '@turf/turf';
@@ -206,6 +209,10 @@ const App: React.FC = () => {
   // New state for point data configuration
   const [currentPointDataConfig, setCurrentPointDataConfig] = useState<ProcessedPointData | null>(null);
   const [isPointDataLoading, setIsPointDataLoading] = useState<boolean>(false);
+  
+  // New state for flow data configuration
+  const [currentFlowDataConfig, setCurrentFlowDataConfig] = useState<ProcessedFlowData | null>(null);
+  const [isFlowDataLoading, setIsFlowDataLoading] = useState<boolean>(false);
 
   useEffect(() => {
     setShowMap(false);
@@ -223,6 +230,11 @@ const App: React.FC = () => {
       return getPointDataColorMap(currentPointDataConfig.config);
     }
     
+    if (currentFlowDataConfig) {
+      // Use color map from flow data configuration
+      return getFlowDataColorMap(currentFlowDataConfig.config);
+    }
+    
     // Fallback to flow data color map only
     return flowDataColorMap;
   };
@@ -236,14 +248,21 @@ const App: React.FC = () => {
       return getPointDataCategoryLabels(currentPointDataConfig.config);
     }
     
-    // Return empty object if no point data config
+    if (currentFlowDataConfig) {
+      // Use category labels from flow data configuration
+      return getFlowDataCategoryLabels(currentFlowDataConfig.config);
+    }
+    
+    // Return empty object if no config
     return {};
   };
 
   const categoryLabels = getCategoryLabels();
 
   // Create flow category labels
-  const flowCategoryLabels = { ...flowDataLabels };
+  const flowCategoryLabels = currentFlowDataConfig 
+    ? getFlowDataCategoryLabels(currentFlowDataConfig.config)
+    : { ...flowDataLabels };
 
   // Load dataset data when selectedDataset changes
   useEffect(() => {
@@ -335,30 +354,40 @@ const App: React.FC = () => {
   }, [selectedDataset, mapId]);
 
   useEffect(() => {
-    const fetchData = async () => {
-      // Load flow data
-      try {
-        const csvPath = '/DeseasePath.csv';
-        const flowConfig = {
-          categoryColumn: 'Disease',
-          nameColumn: 'Disease',
-          originLatColumn: 'Origin',
-          originLonColumn: 'Origin',
-          destLatColumn: 'Destination',
-          destLonColumn: 'Destination',
-          sizeColumn: 'pop',
-          defaultSize: 0.3
-        };
+    const loadFlowDataAsync = async () => {
+      if (dataType === 'FlowData') {
+        setIsFlowDataLoading(true);
+        setCurrentFlowDataConfig(null);
         
-        const flowData = await loadFlowsFromCsv(csvPath, flowConfig);
-        setFlows(flowData);
-      } catch (error) {
-        console.error('Error loading flow data:', error);
+        try {
+          // Load the first flow data configuration (you can extend this to support multiple)
+          const config = FLOW_DATA_CONFIGS[0];
+          if (!config) {
+            console.error('No flow data configuration found');
+            setIsFlowDataLoading(false);
+            return;
+          }
+          
+          const processedData = await loadFlowData(config);
+          setCurrentFlowDataConfig(processedData);
+          setFlows(processedData.data);
+        } catch (error) {
+          console.error('Error loading flow data:', error);
+          setCurrentFlowDataConfig(null);
+          setFlows([]);
+        } finally {
+          setIsFlowDataLoading(false);
+        }
+      } else {
+        // Clear flow data when not in FlowData mode
+        setCurrentFlowDataConfig(null);
         setFlows([]);
+        setIsFlowDataLoading(false);
       }
     };
-    fetchData();
-  }, []); // Remove selectedFlowDataset dependency
+    
+    loadFlowDataAsync();
+  }, [dataType]); // Depend on dataType instead of selectedFlowDataset
 
   // Map data loading - always load GeoJSON when map changes
   useEffect(() => {
@@ -550,20 +579,8 @@ const App: React.FC = () => {
     console.log('=== FLOW CLICK ===');
     console.log('Flow clicked:', flow);
     
-    // Use the original CSV data if available, otherwise fall back to processed data
-    const flowData = flow.originalData ? {
-      // Show all original CSV fields
-      Origin: flow.originalData.Origin,
-      Destination: flow.originalData.Destination,
-      Disease: flow.originalData.Disease,
-      pop: flow.originalData.pop,
-      // Add processed data for display
-      origin_coordinates: `${flow.origin[1].toFixed(4)}, ${flow.origin[0].toFixed(4)}`,
-      destination_coordinates: `${flow.destination[1].toFixed(4)}, ${flow.destination[0].toFixed(4)}`,
-      size_value: flow.sizeValue.toFixed(2),
-      category: flow.category,
-      category_fa: flow.categoryFa || flow.category
-    } : {
+    // Use the original CSV data directly for proper card generation
+    const flowData = flow.originalData || {
       // Fallback if original data is not available
       name: flow.name || flow.category,
       origin: `${flow.origin[1].toFixed(4)}, ${flow.origin[0].toFixed(4)}`,
@@ -665,7 +682,7 @@ const App: React.FC = () => {
                   geoJsonData={geoJsonData}
                   geodata={geodata}
                   points={filteredPoints}
-                  flows={dataType === 'FlowData' ? flows : []}
+                  flowConfig={dataType === 'FlowData' && currentFlowDataConfig ? currentFlowDataConfig.config : null}
                   popupInfo={hoverInfo}
                   fillColor={colorPalette.mapForeground}
                   borderColor={colorPalette.mapBorder}
@@ -713,7 +730,29 @@ const App: React.FC = () => {
           {/* Data Cards Section - Always visible */}
           <div className="data-cards-section">
             <CardsGrid
-              title={selectedRegionData?.regionName || selectedPointData?.pointName || selectedFlowData?.flowName || 'Select a region, marker, or flow to view data'}
+              title={(() => {
+                if (selectedRegionData) {
+                  return selectedRegionData.regionName;
+                }
+                if (selectedPointData) {
+                  return selectedPointData.pointName;
+                }
+                if (selectedFlowData && currentFlowDataConfig) {
+                  // Find the flow that matches the selected flow data
+                  const flow = currentFlowDataConfig.data.find(f => 
+                    f.originalData && 
+                    Object.entries(f.originalData).some(([key, value]) => 
+                      selectedFlowData.data[key] === value
+                    )
+                  );
+                  
+                  if (flow) {
+                    return generateFlowCardTitle(flow, currentFlowDataConfig.config);
+                  }
+                  return selectedFlowData.flowName;
+                }
+                return 'Select a region, marker, or flow to view data';
+              })()}
               cards={(() => {
                 const data = selectedRegionData?.data || selectedPointData?.data || selectedFlowData?.data;
                 if (!data) return [];
@@ -740,6 +779,21 @@ const App: React.FC = () => {
                     }
                   }
                   return cards;
+                }
+                
+                // If we have flow data, use its card configuration
+                if (selectedFlowData && currentFlowDataConfig) {
+                  // Find the flow that matches the selected flow data
+                  const flow = currentFlowDataConfig.data.find(f => 
+                    f.originalData && 
+                    Object.entries(f.originalData).some(([key, value]) => 
+                      data[key] === value
+                    )
+                  );
+                  
+                  if (flow) {
+                    return generateFlowCardData(flow, currentFlowDataConfig.config);
+                  }
                 }
                 
                 // Legacy card generation
