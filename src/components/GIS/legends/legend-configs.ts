@@ -1,6 +1,6 @@
 import { ColorMap } from '../../../types';
 import { GeoDatasetConfig } from '../../../config/geoDataConfig';
-import { DatasetData } from '../../../config/dataLoader';
+import { DatasetData } from '../GeoData/dataLoader';
 
 // Health Status Color Configuration
 export const healthStatusColorMap: ColorMap = {

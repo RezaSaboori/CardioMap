@@ -12,7 +12,7 @@ This directory contains all configuration files for the GIS dashboard. Each conf
 ├── pointDataConfig.ts          # Point data visualization settings
 ├── geoDataConfig.ts            # Geographic data visualization settings
 ├── geoJsonConfig.ts            # Map and GeoJSON file configurations
-├── dataLoader.ts               # Data loading and processing utilities
+# Note: dataLoader.ts has been moved to src/components/GIS/GeoData/dataLoader.ts
 ├── colorScale.test.ts          # Color scale testing utilities
 ├── geoDataConfig.test.ts       # Geographic data configuration tests
 └── [Individual README files]   # Detailed documentation for each config
@@ -44,11 +44,12 @@ This directory contains all configuration files for the GIS dashboard. Each conf
 - **Data Type**: GeoJSON files with optional CSV data
 - **Use Case**: Country, province, county maps
 
-### 5. Data Loader (`dataLoader.ts`)
+### 5. Data Loader (`dataLoader.ts`) - *Moved to GeoData directory*
 **Purpose**: Handles data loading, processing, and merging
 - **Features**: Dynamic imports, data joining, color scale generation
 - **Data Type**: GeoJSON and CSV processing utilities
 - **Use Case**: All data loading operations
+- **New Location**: `src/components/GIS/GeoData/dataLoader.ts`
 
 ## Configuration Patterns
 

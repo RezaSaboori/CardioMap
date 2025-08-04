@@ -3,7 +3,7 @@ import GeoJsonMap from './GeoJsonMap';
 import PointLayer from '../PointData/PointLayer';
 import FlowData from '../FlowData/FlowData';
 import { GeoDatasetConfig } from '../../../config/geoDataConfig';
-import { DatasetData, createColorScale } from '../../../config/dataLoader';
+import { DatasetData, createColorScale } from '../GeoData/dataLoader';
 import { GeodataRow } from '../utils/geodata-utils';
 import { FlowDataConfig } from '../../../config/flowDataConfig';
 

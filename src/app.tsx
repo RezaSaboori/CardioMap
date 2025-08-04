@@ -31,7 +31,7 @@ import {
   getMapCsvPath,
   getMapConfig
 } from './config/geoJsonConfig';
-import { loadDatasetData, DatasetData } from './config/dataLoader';
+import { loadDatasetData, DatasetData } from './components/GIS/GeoData/dataLoader';
 import { loadCsvData, getColorPalette, useThemeChange } from './components/GIS';
 import { Point, ColorMap } from './types';
 import { GeodataRow } from './components/GIS/utils/geodata-utils';

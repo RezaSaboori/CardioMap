@@ -1,5 +1,5 @@
-import { GeoDatasetConfig } from './geoDataConfig';
-import { loadCsvData } from '../components/GIS/utils/csv-loader';
+import { GeoDatasetConfig } from '../../../config/geoDataConfig';
+import { loadCsvData } from '../utils/csv-loader';
 
 export interface MergedGeoJsonData {
   type: 'FeatureCollection';
@@ -27,8 +27,8 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
     let geoJsonData;
     // Fix the path to be relative to src/ directory, not src/config/
     const geoJsonPath = config.geoJsonPath.startsWith('./') 
-      ? config.geoJsonPath.replace('./', '../') 
-      : `../${config.geoJsonPath}`;
+      ? config.geoJsonPath.replace('./', '../../../') 
+      : `../../../${config.geoJsonPath}`;
     
     try {
       const geoJsonModule = await import(/* @vite-ignore */ geoJsonPath);
