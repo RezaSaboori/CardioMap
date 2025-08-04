@@ -11,8 +11,6 @@ import {
   continuousSchemes,
   getDefaultColors,
   getGeodataLegendConfig,
-  getResearchCentersLegendConfig,
-  getDynamicResearchCentersLegendConfig,
   getFlowDataLegendConfig,
   getDynamicFlowLegendConfig,
   getDatasetLegendConfig,
@@ -25,15 +23,27 @@ import {
   getDatasetNames,
   GeoDatasetConfig 
 } from './config/geoDataConfig';
+import { 
+  geoJsonConfig, 
+  getMapIds, 
+  getMapDisplayName, 
+  getMapHoverTag, 
+  getMapGeoJsonPath, 
+  getMapCsvPath,
+  getMapConfig
+} from './config/geoJsonConfig';
 import { loadDatasetData, DatasetData } from './config/dataLoader';
-import { loadCsvData, loadResearchCentersData, getColorPalette, useThemeChange } from './components/GIS';
+import { loadCsvData, getColorPalette, useThemeChange } from './components/GIS';
 import { Point, ColorMap } from './types';
 import { GeodataRow } from './components/GIS/utils/geodata-utils';
+import { POINT_DATA_CONFIGS, getPointDataConfig, getPointDataConfigNames } from './config/pointDataConfig';
+import { loadPointData, ProcessedPointData } from './utils/pointDataLoader';
+import { getPointDataLegendConfig, convertToLegendGroup, getPointDataColorMap, getPointDataCategoryLabels } from './components/GIS/utils/pointDataLegendUtils';
+import { generatePointCardData, generatePointCardTitle } from './components/GIS/utils/pointDataCardUtils';
 import './app.css';
 import provinces from './datasets/geojson/Iran.json';
 import * as turf from '@turf/turf';
-import IranProvincesSampleCsv from './datasets/IranProvincesSample.csv?url';
-import TehranCountiesSampleCsv from './datasets/TehranCountiesSample.csv?url';
+
 import ResearchCenterCsv from './datasets/ResearchCenter.csv?url';
 
 // ThemeToggle as a local component
@@ -77,23 +87,33 @@ const Controls: React.FC<ControlsProps> = ({
   dataType,
   onDataTypeChange,
 }) => {
-  // Get dataset options from configuration
-  const datasetOptions = getDatasetNames();
+  // Get compatible datasets for current map
+  const currentMapGeoJsonPath = getMapGeoJsonPath(mapId);
+  const compatibleDatasets = geoDataConfig.filter(config => config.geoJsonPath === currentMapGeoJsonPath);
+  const compatibleDatasetNames = compatibleDatasets.map(config => config.name);
   
-  // Combined data options (keeping legacy support for ResearchCenter and FlowData)
+  // Get dataset options from configuration (only compatible ones)
+  const datasetOptions = compatibleDatasetNames;
+  const pointDataOptions = getPointDataConfigNames();
+  
+  // Combined data options (migrated to new system)
   const dataOptions = [
     { value: 'nothing', label: 'No Data' },
-    { value: 'ResearchCenter', label: 'Research Centers' },
     { value: 'FlowData', label: 'Disease Path' },
-    ...datasetOptions.map(name => ({ value: name, label: name }))
+    ...datasetOptions.map(name => ({ value: name, label: name })),
+    ...pointDataOptions.map(name => ({ value: `pointdata:${name}`, label: name }))
   ];
 
   const handleCombinedDataChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     
-    if (value === 'ResearchCenter' || value === 'FlowData') {
+    if (value === 'FlowData') {
       onDataTypeChange(e);
       onDatasetChange({ target: { value: 'nothing' } } as React.ChangeEvent<HTMLSelectElement>);
+    } else if (value.startsWith('pointdata:')) {
+      // Handle point data selection
+      onDatasetChange(e);
+      onDataTypeChange({ target: { value: 'Nothing' } } as React.ChangeEvent<HTMLSelectElement>);
     } else if (datasetOptions.includes(value)) {
       onDatasetChange(e);
       onDataTypeChange({ target: { value: 'Nothing' } } as React.ChangeEvent<HTMLSelectElement>);
@@ -105,9 +125,14 @@ const Controls: React.FC<ControlsProps> = ({
 
   // Get the current combined value
   const getCombinedValue = () => {
-    if (dataType === 'ResearchCenter') return 'ResearchCenter';
     if (dataType === 'FlowData') return 'FlowData';
-    if (selectedDataset !== 'nothing') return selectedDataset;
+    if (selectedDataset !== 'nothing') {
+      // Check if it's a point data selection
+      if (selectedDataset.startsWith('pointdata:')) {
+        return selectedDataset;
+      }
+      return selectedDataset;
+    }
     return 'nothing';
   };
 
@@ -123,11 +148,14 @@ const Controls: React.FC<ControlsProps> = ({
       </select>
       <label htmlFor="map-select">Select a Map:</label>
       <select id="map-select" onChange={onMapChange} value={mapId}>
-        {mapIds.map(id => (
-          <option key={id} value={id}>
-            {id}
-          </option>
-        ))}
+        {mapIds.map(id => {
+          const displayName = getMapDisplayName(id);
+          return (
+            <option key={id} value={id}>
+              {displayName}
+            </option>
+          );
+        })}
       </select>
     </div>
   );
@@ -151,19 +179,14 @@ const provinceNames = typedProvinces.features.map(feature => {
   return provinceName;
 });
 
-// Map/data config: all maps for marker display, only some have geodata
-const MAP_CONFIG: Record<string, { geojson: string; csv?: string }> = {
-  Iran: { geojson: './datasets/geojson/Iran.json', csv: IranProvincesSampleCsv },
-  Tehran: { geojson: './datasets/geojson/Tehran.json', csv: TehranCountiesSampleCsv },
-  // Add more maps with geodata here
-};
-const MAP_IDS = ['Iran', ...provinceNames];
+// Use the new GeoJSON configuration
+const MAP_CONFIG = geoJsonConfig;
+const MAP_IDS = Object.keys(MAP_CONFIG);
 
 const App: React.FC = () => {
   const [mapId, setMapId] = useState<string>('Iran');
   const [dataType, setDataType] = useState<string>('ResearchCenter');
   const [selectedDataset, setSelectedDataset] = useState<string>('nothing');
-  const [points, setPoints] = useState<Point[]>([]);
   const [flows, setFlows] = useState<any[]>([]);
   const [filteredPoints, setFilteredPoints] = useState<Point[]>([]);
   const [hoverInfo, setHoverInfo] = useState<{ longitude: number; latitude: number; featureName: string; } | null>(null);
@@ -179,6 +202,10 @@ const App: React.FC = () => {
   const [currentDatasetConfig, setCurrentDatasetConfig] = useState<GeoDatasetConfig | null>(null);
   const [datasetData, setDatasetData] = useState<DatasetData | null>(null);
   const [isDatasetLoading, setIsDatasetLoading] = useState<boolean>(false);
+  
+  // New state for point data configuration
+  const [currentPointDataConfig, setCurrentPointDataConfig] = useState<ProcessedPointData | null>(null);
+  const [isPointDataLoading, setIsPointDataLoading] = useState<boolean>(false);
 
   useEffect(() => {
     setShowMap(false);
@@ -189,17 +216,31 @@ const App: React.FC = () => {
   // Use theme-based color palette
   const colorPalette = getColorPalette();
 
-  const colorMap: ColorMap = {
-    "Hospital": colorPalette.hospital,
-    "Research Center": colorPalette.researchCenter,
-    "Research Facility": colorPalette.researchFacility,
-    ...flowDataColorMap
+  // Generate color map based on current selection
+  const getColorMap = (): ColorMap => {
+    if (currentPointDataConfig) {
+      // Use color map from point data configuration
+      return getPointDataColorMap(currentPointDataConfig.config);
+    }
+    
+    // Fallback to flow data color map only
+    return flowDataColorMap;
   };
 
-  const categoryLabels = points.reduce((acc, point) => {
-    acc[point.category] = point.categoryFa;
-    return acc;
-  }, {} as { [key: string]: string });
+  const colorMap = getColorMap();
+
+  // Generate category labels based on current selection
+  const getCategoryLabels = (): { [key: string]: string } => {
+    if (currentPointDataConfig) {
+      // Use category labels from point data configuration
+      return getPointDataCategoryLabels(currentPointDataConfig.config);
+    }
+    
+    // Return empty object if no point data config
+    return {};
+  };
+
+  const categoryLabels = getCategoryLabels();
 
   // Create flow category labels
   const flowCategoryLabels = { ...flowDataLabels };
@@ -211,10 +252,61 @@ const App: React.FC = () => {
         setCurrentDatasetConfig(null);
         setDatasetData(null);
         setIsDatasetLoading(false);
+        setCurrentPointDataConfig(null);
+        setIsPointDataLoading(false);
+        // Clear geodata when no dataset is selected
+        setGeodata([]);
         return;
       }
 
+      // Check if the selected dataset is compatible with the current map
+      const datasetConfig = getDatasetConfig(selectedDataset);
+      if (datasetConfig) {
+        const datasetGeoJsonPath = datasetConfig.geoJsonPath;
+        const currentMapGeoJsonPath = getMapGeoJsonPath(mapId);
+        
+        if (datasetGeoJsonPath !== currentMapGeoJsonPath) {
+          // Dataset is not compatible with current map, clear it
+          console.log(`Dataset ${selectedDataset} is not compatible with map ${mapId}`);
+          setCurrentDatasetConfig(null);
+          setDatasetData(null);
+          setIsDatasetLoading(false);
+          setCurrentPointDataConfig(null);
+          setIsPointDataLoading(false);
+          setGeodata([]);
+          return;
+        }
+      }
+
+      // Check if this is a point data selection
+      if (selectedDataset.startsWith('pointdata:')) {
+        const pointDataName = selectedDataset.replace('pointdata:', '');
+        setIsPointDataLoading(true);
+        setCurrentDatasetConfig(null);
+        setDatasetData(null);
+        
+        try {
+          const config = getPointDataConfig(pointDataName);
+          if (!config) {
+            console.error(`Point data configuration not found for: ${pointDataName}`);
+            setIsPointDataLoading(false);
+            return;
+          }
+          
+          const processedData = await loadPointData(config);
+          setCurrentPointDataConfig(processedData);
+        } catch (error) {
+          console.error(`Error loading point data ${pointDataName}:`, error);
+          setCurrentPointDataConfig(null);
+        } finally {
+          setIsPointDataLoading(false);
+        }
+        return;
+      }
+
+      // Handle regular dataset loading
       setIsDatasetLoading(true);
+      setCurrentPointDataConfig(null);
       
       const config = getDatasetConfig(selectedDataset);
       if (!config) {
@@ -228,12 +320,11 @@ const App: React.FC = () => {
       try {
         const data = await loadDatasetData(config);
         setDatasetData(data);
-        setGeoJsonData(data.geoJson);
+        // Don't override the map's GeoJSON - only set the geodata
         setGeodata(data.csvData as GeodataRow[]);
       } catch (error) {
         console.error(`Error loading dataset ${selectedDataset}:`, error);
         setDatasetData(null);
-        setGeoJsonData(null);
         setGeodata([]);
       } finally {
         setIsDatasetLoading(false);
@@ -241,13 +332,10 @@ const App: React.FC = () => {
     };
 
     loadDataset();
-  }, [selectedDataset]);
+  }, [selectedDataset, mapId]);
 
   useEffect(() => {
     const fetchData = async () => {
-      const researchData = await loadResearchCentersData();
-      setPoints(researchData);
-      
       // Load flow data
       try {
         const csvPath = '/DeseasePath.csv';
@@ -272,16 +360,19 @@ const App: React.FC = () => {
     fetchData();
   }, []); // Remove selectedFlowDataset dependency
 
-  // Legacy data loading for map changes (keeping for backward compatibility)
+  // Map data loading - always load GeoJSON when map changes
   useEffect(() => {
-    const loadData = async () => {
-      // Only load legacy data if no dataset is selected
-      if (selectedDataset !== 'nothing') {
+    const loadMapData = async () => {
+      const mapConfig = getMapConfig(mapId);
+      if (!mapConfig) {
+        console.error(`No configuration found for mapId: ${mapId}`);
+        setGeoJsonData(null);
+        setGeodata([]);
         return;
       }
 
       // Always load geojson for the selected map
-      let geojsonPath = MAP_CONFIG[mapId]?.geojson || `./datasets/geojson/${mapId}.json`;
+      let geojsonPath = mapConfig.geojson;
       setGeoJsonData(null);
       setGeodata([]);
       try {
@@ -291,21 +382,25 @@ const App: React.FC = () => {
         console.error(`Error loading GeoJSON for mapId: ${mapId}`, error);
         setGeoJsonData(null);
       }
-      // Only load geodata if csv is defined for this map
-      const csvPath = MAP_CONFIG[mapId]?.csv;
-      if (csvPath) {
-        try {
-          const data = await loadCsvData(csvPath);
-          setGeodata(data as GeodataRow[]);
-        } catch (error) {
-          console.error(`Error loading CSV for mapId: ${mapId}`, error);
+
+      // Only load geodata if csv is defined for this map AND no dataset is selected
+      // (when dataset is selected, the dataset loading will handle geodata)
+      if (selectedDataset === 'nothing') {
+        const csvPath = getMapCsvPath(mapId);
+        if (csvPath) {
+          try {
+            const data = await loadCsvData(csvPath);
+            setGeodata(data as GeodataRow[]);
+          } catch (error) {
+            console.error(`Error loading CSV for mapId: ${mapId}`, error);
+            setGeodata([]);
+          }
+        } else {
           setGeodata([]);
         }
-      } else {
-        setGeodata([]);
       }
     };
-    loadData();
+    loadMapData();
   }, [mapId, selectedDataset]);
 
   useEffect(() => {
@@ -314,8 +409,20 @@ const App: React.FC = () => {
       return;
     }
 
+    // Determine which points to filter based on current selection
+    let pointsToFilter: Point[] = [];
+    
+    if (currentPointDataConfig) {
+      // Use point data from configuration
+      pointsToFilter = currentPointDataConfig.data;
+    } else {
+      // No point data to filter
+      setFilteredPoints([]);
+      return;
+    }
+
     // This ensures filtering always happens, masking points outside polygons
-    const filtered = points.filter(p => {
+    const filtered = pointsToFilter.filter(p => {
       const pointGeom = turf.point(p.coordinates);
       
       // If it's a FeatureCollection (e.g., Iran with provinces, or province with counties),
@@ -333,7 +440,7 @@ const App: React.FC = () => {
     });
     
     setFilteredPoints(filtered);
-  }, [mapId, points, geoJsonData]);
+  }, [mapId, geoJsonData, currentPointDataConfig, dataType]);
 
   const handleMapChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setMapId(event.target.value);
@@ -403,24 +510,36 @@ const App: React.FC = () => {
     console.log('=== POINT CLICK ===');
     console.log('Point clicked:', point);
     
-    // Convert point data to a format suitable for the data card
-    const pointData = {
-      name: point.name,
-      category: point.category,
-      categoryFa: point.categoryFa,
-      coordinates: point.coordinates,
-      sizeValue: point.sizeValue,
-      // Format the data for better display
-      type: point.categoryFa || point.category,
-      size: point.sizeValue,
-      // Add any other point properties you want to display
-    };
+    if (currentPointDataConfig) {
+      // Use new point data card generation
+      const cardData = generatePointCardData(point, currentPointDataConfig.config);
+      const cardTitle = generatePointCardTitle(point, currentPointDataConfig.config);
+      
+      setSelectedRegionData(null); // Clear region selection
+      setSelectedPointData({
+        pointName: cardTitle,
+        data: cardData
+      });
+    } else {
+      // Fallback to legacy point data format
+      const pointData = {
+        name: point.name,
+        category: point.category,
+        categoryFa: point.categoryFa,
+        coordinates: point.coordinates,
+        sizeValue: point.sizeValue,
+        // Format the data for better display
+        type: point.categoryFa || point.category,
+        size: point.sizeValue,
+        // Add any other point properties you want to display
+      };
 
-    setSelectedRegionData(null); // Clear region selection
-    setSelectedPointData({
-      pointName: point.name,
-      data: pointData
-    });
+      setSelectedRegionData(null); // Clear region selection
+      setSelectedPointData({
+        pointName: point.name,
+        data: pointData
+      });
+    }
   };
 
   const handleClosePointDataCard = () => {
@@ -470,15 +589,41 @@ const App: React.FC = () => {
 
   const defaultColors = getDefaultColors(colorPalette);
 
+  // Check if current map is compatible with selected dataset
+  const isMapCompatibleWithDataset = () => {
+    if (!currentDatasetConfig) return false;
+    
+    // Check if the dataset's GeoJSON path matches the current map
+    const datasetGeoJsonPath = currentDatasetConfig.geoJsonPath;
+    const currentMapGeoJsonPath = getMapGeoJsonPath(mapId);
+    
+    return datasetGeoJsonPath === currentMapGeoJsonPath;
+  };
+
+  // Get compatible datasets for current map
+  const getCompatibleDatasets = () => {
+    const currentMapGeoJsonPath = getMapGeoJsonPath(mapId);
+    if (!currentMapGeoJsonPath) return [];
+    
+    return geoDataConfig.filter(config => config.geoJsonPath === currentMapGeoJsonPath);
+  };
+
   // Determine color mode and legend config based on current dataset
   const getColorMode = () => {
-    if (!currentDatasetConfig) return 'default';
+    if (!currentDatasetConfig || !isMapCompatibleWithDataset()) return 'default';
     return currentDatasetConfig.type === 'numeric' ? 'continuous' : 'categorical';
   };
 
   const getLegendConfig = () => {
-    if (currentDatasetConfig && datasetData) {
+    // Only show dataset legend if map is compatible with dataset
+    if (currentDatasetConfig && datasetData && isMapCompatibleWithDataset()) {
       return getDatasetLegendConfig(currentDatasetConfig, datasetData, colorPalette);
+    }
+    
+    // Point data legend config
+    if (currentPointDataConfig && filteredPoints.length > 0) {
+      const pointDataLegend = getPointDataLegendConfig(currentPointDataConfig.config, filteredPoints);
+      return convertToLegendGroup(pointDataLegend);
     }
     
     // Legacy legend configs
@@ -486,13 +631,6 @@ const App: React.FC = () => {
       const geodataLegend = getGeodataLegendConfig(selectedDataset as any, colorPalette);
       if (geodataLegend) {
         return geodataLegend;
-      }
-    }
-    
-    if (dataType === 'ResearchCenter' && filteredPoints.length > 0) {
-      const researchLegend = getDynamicResearchCentersLegendConfig(filteredPoints, colorMap, categoryLabels);
-      if (researchLegend) {
-        return researchLegend;
       }
     }
     
@@ -522,11 +660,11 @@ const App: React.FC = () => {
         <div className="gis-container">
           <div className="map-container">
             <div className={showMap ? "map-inner map-fade-in" : "map-inner"}>
-              {showMap && geoJsonData && !isDatasetLoading && (
+              {showMap && geoJsonData && !isDatasetLoading && !isPointDataLoading && (
                 <GeoMapContainer
                   geoJsonData={geoJsonData}
                   geodata={geodata}
-                  points={dataType === 'ResearchCenter' ? filteredPoints : []}
+                  points={filteredPoints}
                   flows={dataType === 'FlowData' ? flows : []}
                   popupInfo={hoverInfo}
                   fillColor={colorPalette.mapForeground}
@@ -534,13 +672,14 @@ const App: React.FC = () => {
                   beforeOpacity={beforeOpacity}
                   afterOpacity={0.3}
                   coloredDataOpacity={coloredDataOpacity}
-                  selectedGeodata={currentDatasetConfig?.dataColumn || 'nothing'}
+                  selectedGeodata={isMapCompatibleWithDataset() ? (currentDatasetConfig?.dataColumn || 'nothing') : 'nothing'}
                   colorMode={getColorMode()}
                   defaultColors={defaultColors}
-                  categoricalSchemes={categoricalSchemes}
-                  continuousSchemes={continuousSchemes}
+                  categoricalSchemes={isMapCompatibleWithDataset() ? categoricalSchemes : []}
+                  continuousSchemes={isMapCompatibleWithDataset() ? continuousSchemes : []}
                   colorMap={colorMap}
                   categoryLabels={dataType === 'FlowData' ? flowCategoryLabels : categoryLabels}
+                  hoverTag={getMapHoverTag(mapId)}
                   onRegionClick={handleRegionClick}
                   onPointClick={handlePointClick}
                   onFlowClick={handleFlowClick}
@@ -578,6 +717,11 @@ const App: React.FC = () => {
               cards={(() => {
                 const data = selectedRegionData?.data || selectedPointData?.data || selectedFlowData?.data;
                 if (!data) return [];
+                
+                // If data is already an array of CardData objects (from point data), return it directly
+                if (Array.isArray(data)) {
+                  return data;
+                }
                 
                 // If we have a current dataset config, use its card configuration
                 if (currentDatasetConfig && selectedRegionData) {

@@ -5,6 +5,7 @@ export interface Point {
   coordinates: [number, number];
   sizeValue: number;
   name: string;
+  originalData?: Record<string, any>; // Store the original CSV row data for card display
 }
 
 export interface ColorMap {

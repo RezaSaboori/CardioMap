@@ -43,6 +43,7 @@ export interface GeoMapContainerProps {
   continuousSchemes?: Array<{ column: string; gradient: Array<{ value: number; color: string }> }>;
   colorMap?: Record<string, string>;
   categoryLabels?: Record<string, string>;
+  hoverTag?: string; // Tag for hover display (e.g., 'name:fa', 'name:en')
   children?: React.ReactNode;
   onRegionClick?: (regionData: Record<string, any>, regionName: string) => void;
   onPointClick?: (point: any) => void;
@@ -69,6 +70,7 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
   continuousSchemes,
   colorMap = {},
   categoryLabels = {},
+  hoverTag = "name:en", // Default hover tag
   children,
   onRegionClick,
   onPointClick,
@@ -154,6 +156,7 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
       defaultColors={defaultColors}
       categoricalSchemes={newCategoricalSchemes}
       continuousSchemes={newContinuousSchemes}
+      hoverTag={hoverTag}
       onRegionClick={onRegionClick}
     >
       {points.length > 0 && (

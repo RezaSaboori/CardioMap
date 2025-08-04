@@ -1,21 +1,41 @@
 /**
- * Parses an rgb color string into an object.
- * @param color - The rgb string, e.g., "rgb(255, 100, 0)".
+ * Parses an rgb color string or hex color into an object.
+ * @param color - The color string, e.g., "rgb(255, 100, 0)" or "#ff6400".
  * @returns An object with r, g, b properties, or null if parsing fails.
  */
 export function parseRgb(color: string): { r: number; g: number; b: number } | null {
-    const match = color.match(/rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)/);
-    if (!match) return null;
-    return {
-        r: parseInt(match[1], 10),
-        g: parseInt(match[2], 10),
-        b: parseInt(match[3], 10),
-    };
+    // Handle rgb() format
+    const rgbMatch = color.match(/rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)/);
+    if (rgbMatch) {
+        return {
+            r: parseInt(rgbMatch[1], 10),
+            g: parseInt(rgbMatch[2], 10),
+            b: parseInt(rgbMatch[3], 10),
+        };
+    }
+    
+    // Handle hex format (#RRGGBB or #RGB)
+    const hexMatch = color.match(/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/);
+    if (hexMatch) {
+        let hex = hexMatch[1];
+        // Expand 3-digit hex to 6-digit
+        if (hex.length === 3) {
+            hex = hex.split('').map(char => char + char).join('');
+        }
+        
+        return {
+            r: parseInt(hex.substring(0, 2), 16),
+            g: parseInt(hex.substring(2, 4), 16),
+            b: parseInt(hex.substring(4, 6), 16),
+        };
+    }
+    
+    return null;
 }
 
 /**
- * Blends an array of rgb color strings using the "multiply" blend mode.
- * @param colors - An array of rgb color strings.
+ * Blends an array of color strings (rgb or hex) using averaging.
+ * @param colors - An array of color strings (rgb or hex).
  * @returns The resulting rgb color string.
  */
 export function blendColors(colors: string[]): string {

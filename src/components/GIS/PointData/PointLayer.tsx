@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useContext, useCallback, useRef } 
 import { Marker } from 'react-map-gl/maplibre';
 import Supercluster from 'supercluster';
 import { pie as d3pie, arc as d3arc } from 'd3-shape';
-import { Point, ColorMap } from '../../types';
+import { Point, ColorMap } from '../../../types';
 import { MapContext } from '../GeoJson/GeoJsonMap';
 import { blendColors, parseRgb } from '../utils/color-utils';
 import { 
@@ -147,7 +147,7 @@ const PointLayer: React.FC<PointLayerProps> = ({
 
         // Simplified cluster rendering for large datasets
         if (PERFORMANCE_OPTIMIZATIONS.REDUCE_CLUSTER_DETAIL) {
-            const size = Math.min(maxClusterSize, baseClusterSize + Math.sqrt(cluster.properties.point_count) * 5);
+            const size = Math.min(maxClusterSize, baseClusterSize + Math.sqrt(cluster.properties.point_count) * 8); // Increased multiplier
             const pointColor = colorMap[Object.keys(counts)[0]] || fallbackColor;
             
             return (
@@ -176,8 +176,8 @@ const PointLayer: React.FC<PointLayerProps> = ({
             Object.entries(counts).map(([key, value]) => ({ key, value }))
         );
 
-        // Use theme-based sizing
-        const size = Math.min(maxClusterSize, baseClusterSize + Math.sqrt(cluster.properties.point_count) * 5);
+        // Use theme-based sizing - make clusters bigger
+        const size = Math.min(maxClusterSize, baseClusterSize + Math.sqrt(cluster.properties.point_count) * 8); // Increased multiplier
         const radius = size / 2;
         const centralRadius = radius * 0.3; // Make central circle much smaller
         const arc = d3arc().innerRadius(centralRadius).outerRadius(radius); // Make pie touch the center
@@ -305,9 +305,10 @@ const PointLayer: React.FC<PointLayerProps> = ({
                 const shadowColor1 = parsedColor ? `rgba(${parsedColor.r}, ${parsedColor.g}, ${parsedColor.b}, 1.0)` : 'rgba(0,0,0,0.7)';
                 const shadowColor2 = parsedColor ? `rgba(${parsedColor.r}, ${parsedColor.g}, ${parsedColor.b}, 0.7)` : 'rgba(0,0,0,0.5)';
 
-                // Calculate marker size using theme-based scale
-                const minMarkerSize = spacingToPx(theme.spacingSm || '8px');
-                const markerSize = Math.max(minMarkerSize, point.sizeValue * spacingToPx(theme.spacingLg || '24px'));
+                // Calculate marker size using theme-based scale - make points bigger
+                const minMarkerSize = spacingToPx(theme.spacingMd || '16px'); // Increased from Sm to Md
+                const maxMarkerSize = spacingToPx(theme.spacing3xl || '48px'); // Add max size
+                const markerSize = Math.max(minMarkerSize, Math.min(maxMarkerSize, point.sizeValue * spacingToPx(theme.spacing2xl || '40px'))); // Increased multiplier
                 
                 // Simplified shadows for performance
                 const filterStyle = PERFORMANCE_OPTIMIZATIONS.SIMPLIFIED_SHADOWS
