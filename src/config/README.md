@@ -1,266 +1,230 @@
-# Geodata Configuration Guide
-
-This document explains how to configure and control geodata visualizations in the GIS dashboard system.
+# Configuration Directory (`/config`)
 
 ## Overview
+This directory contains all configuration files for the GIS dashboard. Each configuration file manages a specific aspect of the application, from data sources to visualization settings.
 
-The geodata visualization system allows you to display various datasets on geographic maps. The system supports both **numeric** (continuous) and **categorical** (discrete) data types, with automatic color coding and interactive features.
+## Directory Structure
 
-## Configuration Structure
-
-### Core Configuration File: `geoDataConfig.ts`
-
-The main configuration is located in `src/config/geoDataConfig.ts`. This file defines:
-
-- **Dataset configurations** - How data is loaded and displayed
-- **Color schemes** - Visual representation of data values
-- **Card configurations** - Information displayed in tooltips and legends
-- **Helper functions** - Utilities for accessing configuration data
-
-## Adding New Datasets
-
-### Step 1: Prepare Your Data Files
-
-#### CSV Data File
-Place your CSV file in `src/datasets/` directory. Your CSV should include:
-- A column for geographic identification (e.g., province names)
-- Data columns you want to visualize
-- Optional metadata columns
-
-**Example CSV structure:**
-```csv
-name,pop,health_status,Doctors per 10k,Hospital Beds,Area
-Alborz Province,2730000,good,12.5,850,5120
-Ardabil Province,1300000,medium,8.2,420,17800
+```
+/config/
+├── README.md                    # This file - Main configuration documentation
+├── flowDataConfig.ts           # Flow data visualization settings
+├── pointDataConfig.ts          # Point data visualization settings
+├── geoDataConfig.ts            # Geographic data visualization settings
+├── geoJsonConfig.ts            # Map and GeoJSON file configurations
+├── dataLoader.ts               # Data loading and processing utilities
+├── colorScale.test.ts          # Color scale testing utilities
+├── geoDataConfig.test.ts       # Geographic data configuration tests
+└── [Individual README files]   # Detailed documentation for each config
 ```
 
-#### GeoJSON File
-Place your GeoJSON file in `src/datasets/geojson/` directory. The GeoJSON should contain:
-- Geographic boundaries (polygons)
-- Properties that can be matched with your CSV data
+## Configuration Files Overview
 
-### Step 2: Import the CSV File
+### 1. Flow Data Configuration (`flowDataConfig.ts`)
+**Purpose**: Manages flow data visualization (connections between points)
+- **Features**: Animated particles, curved paths, category colors
+- **Data Type**: CSV with origin/destination coordinates
+- **Use Case**: Disease paths, migration flows, trade routes
 
-Add an import statement at the top of `geoDataConfig.ts`:
+### 2. Point Data Configuration (`pointDataConfig.ts`)
+**Purpose**: Manages point data visualization (discrete locations)
+- **Features**: Interactive markers, size visualization, multilingual support
+- **Data Type**: CSV with latitude/longitude coordinates
+- **Use Case**: Research centers, hospitals, cities
+
+### 3. Geo Data Configuration (`geoDataConfig.ts`)
+**Purpose**: Manages geographic data visualization (regions/polygons)
+- **Features**: Color-coded regions, numeric/categorical data
+- **Data Type**: GeoJSON + CSV with attribute data
+- **Use Case**: Province statistics, health indicators, population data
+
+### 4. GeoJSON Configuration (`geoJsonConfig.ts`)
+**Purpose**: Manages available maps and their metadata
+- **Features**: Multiple geographic levels, multilingual support
+- **Data Type**: GeoJSON files with optional CSV data
+- **Use Case**: Country, province, county maps
+
+### 5. Data Loader (`dataLoader.ts`)
+**Purpose**: Handles data loading, processing, and merging
+- **Features**: Dynamic imports, data joining, color scale generation
+- **Data Type**: GeoJSON and CSV processing utilities
+- **Use Case**: All data loading operations
+
+## Configuration Patterns
+
+### Common Interface Structure
+All data configurations follow a similar pattern:
 
 ```typescript
-import YourDatasetCsv from '../datasets/YourDataset.csv?url';
-```
-
-### Step 3: Add Configuration
-
-Add a new configuration object to the `geoDataConfig` array:
-
-#### For Numeric Data:
-```typescript
-{
-  name: 'Your Dataset Name',
-  type: 'numeric',
-  csvPath: YourDatasetCsv,
-  geoJsonPath: './datasets/geojson/YourGeoJson.json',
-  joinProperty: 'tags.name:en', // Property in GeoJSON to match
-  csvJoinColumn: 'name', // Column in CSV to match
-  dataColumn: 'pop', // Column containing the data to visualize
-  colorGradients: ['#FFEDA0', '#FEB24C', '#F03B20'], // Color gradient
-  cardConfig: {
-    pop: {
-      title: 'Population',
-      unit: 'people',
-      info: 'Total population'
-    }
-  }
+interface DataConfig {
+  name: string;                                    // Display name
+  csvPath: string;                                 // Data source
+  categoriesValues: Record<string, [string, string]>; // Display names and colors
+  cardConfig: CardConfig;                          // Information cards
 }
 ```
 
-#### For Categorical Data:
-```typescript
-{
-  name: 'Your Categorical Dataset',
-  type: 'categorical',
-  csvPath: YourDatasetCsv,
-  geoJsonPath: './datasets/geojson/YourGeoJson.json',
-  joinProperty: 'tags.name:en',
-  csvJoinColumn: 'name',
-  dataColumn: 'status',
-  colorMap: {
-    good: '#4caf50',
-    medium: '#ffeb3b',
-    poor: '#ff9800'
-  },
-  cardConfig: {
-    status: {
-      title: 'Status',
-      info: 'Current status'
-    }
-  }
-}
-```
-
-## Configuration Properties
-
-### Required Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `name` | string | Display name for UI selector and legend |
-| `type` | 'numeric' \| 'categorical' | Data type for visualization |
-| `csvPath` | string | Path to CSV data file (use import) |
-| `geoJsonPath` | string | Path to GeoJSON boundary file |
-| `joinProperty` | string | Property in GeoJSON to match with CSV |
-| `csvJoinColumn` | string | Column in CSV to match with GeoJSON |
-| `dataColumn` | string | Column in CSV containing the data to visualize |
-| `cardConfig` | CardConfig | Configuration for tooltip/legend cards |
-
-### Optional Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `colorGradients` | [string, string, string] | Color gradient for numeric data |
-| `colorMap` | Record<string, string> | Color mapping for categorical data |
-
-### Card Configuration
-
-The `cardConfig` object defines how data is displayed in tooltips and legends:
+### Helper Functions Pattern
+Each configuration includes standard helper functions:
 
 ```typescript
-cardConfig: {
-  columnName: {
-    title: 'Display Title',
-    unit?: 'unit', // Optional unit of measurement
-    info?: 'Description' // Optional description
-  }
-}
+// Get specific configuration
+export const getConfig = (name: string): ConfigType | undefined
+
+// Get all configuration names
+export const getConfigNames = (): string[]
+
+// Get color mapping
+export const getColorMap = (config: ConfigType): Record<string, string>
+
+// Get category labels
+export const getCategoryLabels = (config: ConfigType): Record<string, string>
 ```
 
-## Data Types
-
-### Numeric Data
-- **Purpose**: Continuous data with values that can be ordered
-- **Visualization**: Color gradients from low to high values
-- **Example**: Population, temperature, income levels
-- **Configuration**: Use `colorGradients` array
-
-### Categorical Data
-- **Purpose**: Discrete categories or classifications
-- **Visualization**: Distinct colors for each category
-- **Example**: Health status, political parties, land use types
-- **Configuration**: Use `colorMap` object
-
-## Color Configuration
-
-### Numeric Color Gradients
-Define a three-color gradient for numeric data:
-```typescript
-colorGradients: ['#FFEDA0', '#FEB24C', '#F03B20']
-// Low values → Medium values → High values
-```
-
-### Categorical Color Maps
-Define specific colors for each category:
-```typescript
-colorMap: {
-  good: '#4caf50',    // green
-  medium: '#ffeb3b',  // yellow
-  poor: '#ff9800'     // orange
-}
-```
-
-## Helper Functions
-
-The configuration file provides several helper functions:
-
-### `getDatasetConfig(name: string)`
-Returns the configuration for a specific dataset by name.
-
-### `getDatasetNames()`
-Returns an array of all available dataset names for UI selectors.
-
-### `getCategoricalColorMap()`
-Returns the default color map for categorical data.
-
-### `getCategoricalLabels()`
-Returns human-readable labels for categorical values.
-
-## Data Joining
-
-The system joins CSV data with GeoJSON boundaries using:
-
-1. **CSV Join Column**: The column in your CSV that contains geographic identifiers
-2. **GeoJSON Join Property**: The property in your GeoJSON that contains matching identifiers
-
-**Example:**
-- CSV has column `name` with values like "Tehran Province"
-- GeoJSON has property `tags.name:en` with values like "Tehran Province"
-- Set `csvJoinColumn: 'name'` and `joinProperty: 'tags.name:en'`
-
-## File Structure
+## Data Flow Architecture
 
 ```
-src/
-├── config/
-│   ├── geoDataConfig.ts    # Main configuration file
-│   └── README.md          # This file
-├── datasets/
-│   ├── YourData.csv       # Your CSV data files
-│   └── geojson/
-│       ├── Iran.json      # Your GeoJSON boundary files
-│       └── YourRegion.json
+CSV/GeoJSON Files → Configuration → Data Loader → Components → Visualization
 ```
 
-## Best Practices
+### 1. Data Sources
+- **CSV Files**: Located in `/src/datasets/`
+- **GeoJSON Files**: Located in `/src/datasets/geojson/`
+- **Configuration**: Defines how to process and visualize data
 
-1. **Naming**: Use descriptive names for datasets and columns
-2. **Data Quality**: Ensure CSV and GeoJSON identifiers match exactly
-3. **Color Selection**: Choose accessible color schemes for colorblind users
-4. **Units**: Always specify units for numeric data
-5. **Documentation**: Provide clear descriptions in card configurations
+### 2. Configuration Layer
+- **Data Mapping**: Maps CSV columns to visualization properties
+- **Display Settings**: Colors, labels, information cards
+- **Validation**: Ensures data integrity and required fields
+
+### 3. Processing Layer
+- **Data Loading**: Dynamic imports and CSV parsing
+- **Data Joining**: Merges CSV data with GeoJSON features
+- **Data Transformation**: Normalization, scaling, categorization
+
+### 4. Visualization Layer
+- **Components**: React components for different data types
+- **Interactivity**: Hover, click, and selection handlers
+- **Responsive Design**: Adapts to different screen sizes
+
+## Adding New Data Sources
+
+### Step 1: Prepare Data Files
+1. Add CSV file to `/src/datasets/`
+2. Add GeoJSON file to `/src/datasets/geojson/` (if needed)
+3. Ensure data format matches requirements
+
+### Step 2: Choose Configuration Type
+- **Flow Data**: For connections between points
+- **Point Data**: For discrete locations
+- **Geo Data**: For regional/polygon data
+- **Map Data**: For new geographic boundaries
+
+### Step 3: Create Configuration
+1. Import data files at top of configuration
+2. Add configuration object to appropriate array
+3. Define column mappings and display settings
+4. Configure information cards
+
+### Step 4: Test Configuration
+1. Run tests: `npm test`
+2. Check browser console for errors
+3. Verify data loading and visualization
+
+## Configuration Best Practices
+
+### 1. Data Validation
+- Always validate required columns exist
+- Check data types match expected formats
+- Handle missing or invalid data gracefully
+
+### 2. Performance Optimization
+- Use dynamic imports for large files
+- Process data efficiently in memory
+- Cache processed data when possible
+
+### 3. Error Handling
+- Provide detailed error messages
+- Graceful degradation for missing data
+- Fallback values for required fields
+
+### 4. Internationalization
+- Support multiple languages (English/Persian)
+- Use consistent naming conventions
+- Provide display names for all categories
+
+### 5. Accessibility
+- Use semantic color schemes
+- Provide alternative text for visual elements
+- Ensure keyboard navigation support
+
+## Testing
+
+### Unit Tests
+- `colorScale.test.ts`: Tests color scale generation
+- `geoDataConfig.test.ts`: Tests geographic data configuration
+
+### Integration Tests
+- Data loading and processing
+- Configuration validation
+- Component integration
+
+### Manual Testing
+- Browser console logging
+- Data visualization verification
+- Performance monitoring
 
 ## Troubleshooting
 
 ### Common Issues
 
-1. **Data not displaying**: Check that `csvJoinColumn` and `joinProperty` values match exactly
-2. **Wrong colors**: Verify `colorGradients` or `colorMap` configuration
-3. **Missing tooltips**: Ensure `cardConfig` includes all columns you want to display
-4. **Import errors**: Make sure CSV files are in the correct directory and imported properly
-
-### Debugging Tips
-
-- Check browser console for import errors
+#### 1. Data Not Loading
+- Check file paths in configuration
 - Verify CSV column names match configuration
-- Test with a simple dataset first
-- Use the helper functions to verify configuration
+- Check browser console for import errors
 
-## Example: Adding a New Dataset
+#### 2. Visualization Issues
+- Verify color mappings are correct
+- Check data type (numeric vs categorical)
+- Ensure coordinate formats are valid
 
-Here's a complete example of adding a new dataset:
+#### 3. Performance Problems
+- Use dynamic imports for large files
+- Optimize data processing algorithms
+- Consider data caching strategies
 
-1. **Add CSV file**: `src/datasets/EconomicData.csv`
-2. **Add import**: `import EconomicDataCsv from '../datasets/EconomicData.csv?url';`
-3. **Add configuration**:
-```typescript
-{
-  name: 'Economic Indicators',
-  type: 'numeric',
-  csvPath: EconomicDataCsv,
-  geoJsonPath: './datasets/geojson/Iran.json',
-  joinProperty: 'tags.name:en',
-  csvJoinColumn: 'province',
-  dataColumn: 'gdp_per_capita',
-  colorGradients: ['#e8f5e8', '#4caf50', '#2e7d32'],
-  cardConfig: {
-    gdp_per_capita: {
-      title: 'GDP per Capita',
-      unit: 'USD',
-      info: 'Gross Domestic Product per capita'
-    },
-    unemployment_rate: {
-      title: 'Unemployment Rate',
-      unit: '%',
-      info: 'Percentage of unemployed population'
-    }
-  }
-}
-```
+### Debug Tools
+- Browser console logging
+- Configuration validation tests
+- Data processing utilities
 
-This configuration will create a new visualization option in your GIS dashboard with proper color coding and informative tooltips. 
+## Integration with Components
+
+### Flow Data
+- `FlowData` component for data loading
+- `FlowLayer` component for visualization
+- `flowDataLoader.ts` for data processing
+
+### Point Data
+- `PointData` component for data loading
+- `PointLayer` component for visualization
+- `pointDataLoader.ts` for data processing
+
+### Geo Data
+- `GeoData` component for data loading
+- `GeoJsonMap` component for visualization
+- `dataLoader.ts` for data processing
+
+## Future Enhancements
+
+### Planned Features
+- **Dynamic Configuration**: Runtime configuration changes
+- **Data Caching**: Improved performance for large datasets
+- **Advanced Filtering**: Complex data filtering options
+- **Export Functionality**: Data export capabilities
+
+### Potential Improvements
+- **Configuration UI**: Visual configuration editor
+- **Data Validation**: Enhanced validation tools
+- **Performance Monitoring**: Real-time performance metrics
+- **Error Recovery**: Advanced error handling strategies 
