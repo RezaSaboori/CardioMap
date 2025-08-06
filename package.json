@@ -32,7 +32,8 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-map-gl": "^8.0.4",
-    "supercluster": "^8.0.1"
+    "supercluster": "^8.0.1",
+    "three": "^0.179.1"
   },
   "devDependencies": {
     "@danmarshall/deckgl-typings": "^4.9.28",
@@ -43,6 +44,7 @@
     "@types/node": "^24.0.12",
     "@types/papaparse": "^5.3.16",
     "@types/supercluster": "^7.1.3",
+    "@types/three": "^0.178.1",
     "identity-obj-proxy": "^3.0.0",
     "jest": "^30.0.4",
     "jest-environment-jsdom": "^30.0.4",

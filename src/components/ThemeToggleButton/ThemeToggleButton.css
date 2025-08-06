@@ -1,0 +1,243 @@
+/* --- The main capsule container --- */
+.capsule-toggle {
+    cursor: pointer;
+    display: inline-block;
+    position: relative;
+    --capsule-width: 90px; /* This will be overridden by compact/expanded styles */
+    width: var(--capsule-width);
+    height: var(--menu-item-height);
+    border-radius: 9999px;
+    border: none;
+    outline: none;
+    /* 🚀 Synchronized with menu timing system */
+    transition: background-color var(--menu-timing-quick) var(--menu-easing-quick);
+}
+
+/* Remove focus outline completely */
+.capsule-toggle:focus {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.capsule-toggle:focus-visible {
+    outline: none !important;
+    box-shadow: none !important;
+}
+
+.capsule-toggle.expanded {
+    /* Calculate width based on icon size and padding */
+    width: calc(var(--menu-icon-size) * 2 + 24px);
+    /* 🚀 Immediate expansion timing - capsule expands first, then text appears */
+    transition: background-color var(--menu-timing-quick) var(--menu-easing-quick), 
+                width var(--menu-timing-main) var(--menu-easing-layout) 0ms; /* No delay for expansion */
+}
+
+/* --- Compact mode styling --- */
+.capsule-toggle.compact {
+    width: var(--menu-item-height); /* Circular in compact mode */
+    height: var(--menu-item-height);
+    /* 🎯 Sequenced compact timing - width collapses AFTER text disappears */
+    transition: background-color var(--menu-timing-quick) var(--menu-easing-quick), 
+                width var(--menu-timing-main) var(--menu-easing-layout) var(--menu-timing-quick); /* Width waits for text to fade (0.3s) */
+}
+
+.capsule-toggle.compact .toggle-knob {
+    /* Center the knob and prevent movement in compact mode */
+    left: 3px;
+    transform: translateX(0px) !important;
+    /* 🕐 Synchronized knob timing in compact mode */
+    transition: background-color var(--menu-timing-quick) var(--menu-easing-quick), 
+                color var(--menu-timing-quick) var(--menu-easing-quick);
+    transition-delay: inherit;
+}
+
+/* --- The moving knob --- */
+.toggle-knob {
+    position: absolute;
+    top: var(--menu-knob-margin);
+    left: var(--menu-knob-margin);
+    width: var(--menu-icon-size);
+    height: var(--menu-icon-size);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    /* 🎪 Synchronized knob transitions - harmonious movement */
+    transition: transform var(--menu-timing-smooth) var(--menu-easing-transform), 
+                background-color var(--menu-timing-quick) var(--menu-easing-quick), 
+                color var(--menu-timing-quick) var(--menu-easing-quick);
+    transition-delay: inherit;
+}
+
+/* --- Text Labels --- */
+.label-light, .label-dark {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: var(--menu-font-size);
+    pointer-events: none;
+    /* 🎭 Immediate label transitions - respond instantly to theme changes */
+    transition: opacity var(--menu-timing-quick) var(--menu-easing-quick), 
+                color var(--menu-timing-quick) var(--menu-easing-quick);
+    transition-delay: 0ms; /* Immediate response to theme changes */
+    font-family: var(--font-family-system);
+}
+
+/* 🎯 Compact state: Labels are always hidden regardless of mode */
+.capsule-toggle.compact .label-light,
+.capsule-toggle.compact .label-dark {
+    opacity: 0 !important; /* Force hide in compact mode */
+    transition-delay: 0ms; /* Immediate disappearance when collapsing */
+}
+
+/* 🚀 Expansion state: Labels appear immediately when expanded */
+.capsule-toggle.expanded .label-light,
+.capsule-toggle.expanded .label-dark {
+    transition-delay: 0ms; /* Immediate appearance when expanded */
+}
+
+.label-light {
+    left: calc(var(--menu-icon-size) + 12px);
+}
+
+.label-dark {
+    right: calc(var(--menu-icon-size) + 12px);
+}
+
+/* --- SVG Animation Styles --- */
+.toggle-knob .sun-and-moon {
+    fill: currentColor;
+}
+.toggle-knob .sun-rays {
+    stroke: currentColor;
+    stroke-width: 2;
+}
+.toggle-knob .toggler-svg {
+    /* 🌟 Synchronized SVG rotation - smooth and elegant */
+    transition: transform var(--menu-timing-smooth) var(--menu-easing-transform);
+}
+.toggle-knob .sun-and-moon > circle {
+    /* 🌙 Synchronized moon/sun morphing */
+    transition: r var(--menu-timing-quick) var(--menu-easing-quick);
+}
+.toggle-knob #mask-circle {
+    /* 🌘 Synchronized mask animation */
+    transition: cx var(--menu-timing-quick) var(--menu-easing-quick), 
+                cy var(--menu-timing-quick) var(--menu-easing-quick);
+}
+.toggle-knob .sun-rays {
+    /* ☀️ Synchronized sun rays fade */
+    transition: opacity var(--menu-timing-quick) var(--menu-easing-quick);
+}
+
+/* --- Light Mode State --- */
+.capsule-toggle.light-mode {
+    background-color: rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(5px);
+}
+.capsule-toggle.light-mode .toggle-knob {
+    transform: translateX(0px);
+    background-color: var(--color-gray2);
+    color: var(--color-gray11);
+}
+.capsule-toggle.light-mode.expanded .toggle-knob {
+    transform: translateX(0px);
+}
+.capsule-toggle.light-mode .toggler-svg {
+    transform: rotate(90deg);
+}
+.capsule-toggle.light-mode .sun-and-moon > circle {
+    r: 5;
+}
+.capsule-toggle.light-mode #mask-circle {
+    cx: 100%;
+    cy: 0;
+}
+.capsule-toggle.light-mode .sun-rays {
+    opacity: 1;
+}
+.capsule-toggle.light-mode.expanded .label-light {
+    opacity: 1;
+    color: var(--color-gray12);
+    transition-delay: 0ms; /* Immediate response */
+}
+.capsule-toggle.light-mode .label-dark {
+    opacity: 0;
+    transition-delay: 0ms; /* Immediate response */
+}
+
+/* --- Dark Mode State --- */
+.capsule-toggle.dark-mode {
+    background-color: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(5px);
+}
+.capsule-toggle.dark-mode .toggle-knob {
+    transform: translateX(calc(var(--capsule-width) - var(--menu-icon-size) - var(--menu-knob-margin) * 2));
+    background-color: var(--color-gray2);
+    color: var(--color-gray11);
+}
+.capsule-toggle.dark-mode.expanded .toggle-knob {
+    transform: translateX(calc(var(--menu-icon-size) + 24px - (var(--menu-knob-margin) * 2)));
+}
+.capsule-toggle.dark-mode .toggler-svg {
+    transform: rotate(40deg);
+}
+.capsule-toggle.dark-mode .sun-and-moon > circle {
+    r: 9;
+}
+.capsule-toggle.dark-mode #mask-circle {
+    cx: 12;
+    cy: 6;
+}
+.capsule-toggle.dark-mode .sun-rays {
+    opacity: 0;
+}
+.capsule-toggle.dark-mode.expanded .label-dark {
+    opacity: 1;
+    color: var(--color-gray12);
+    transition-delay: 0ms; /* Immediate response */
+}
+.capsule-toggle.dark-mode .label-light {
+    opacity: 0;
+    transition-delay: 0ms; /* Immediate response */
+}
+
+.theme-toggle-button .icon-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background-color: var(--color-gray11);
+  color: var(--color-gray11);
+  /* 🎊 Synchronized with menu system */
+  transition: all var(--menu-timing-quick) var(--menu-easing-quick);
+}
+.theme-toggle-button svg {
+  transform: scale(0);
+  /* 🎪 Synchronized SVG scaling */
+  transition: transform var(--menu-timing-quick) var(--menu-easing-quick);
+}
+body.dark .theme-toggle-button .sun-icon {
+  transform: scale(1);
+}
+.theme-toggle-button .moon-icon {
+  transform: scale(1);
+}
+body.dark .theme-toggle-button .moon-icon {
+  transform: scale(0);
+}
+
+.theme-toggle-button:hover .icon-container {
+  background-color: var(--color-gray11);
+  color: var(--color-gray1);
+}
+
+.theme-toggle-button:focus {
+  outline: none;
+}
+
+.theme-toggle-button:focus-visible .icon-container {
+  box-shadow: 0 0 0 4px var(--color-gray11);
+}

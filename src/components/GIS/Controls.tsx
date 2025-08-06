@@ -2,6 +2,7 @@ import React from 'react';
 import { geoDataConfig } from '../../config/geoDataConfig';
 import { getMapGeoJsonPath, getMapDisplayName } from '../../config/geoJsonConfig';
 import { getPointDataConfigNames } from '../../config/pointDataConfig';
+import { getFlowDataConfigNames } from '../../config/flowDataConfig';
 import DropdownMenu from './DropdownMenu';
 
 export interface ControlsProps {
@@ -31,11 +32,12 @@ const Controls: React.FC<ControlsProps> = ({
   // Get dataset options from configuration (only compatible ones)
   const datasetOptions = compatibleDatasetNames;
   const pointDataOptions = getPointDataConfigNames();
+  const flowDataOptions = getFlowDataConfigNames();
   
   // Combined data options (migrated to new system)
   const dataOptions = [
-    { value: 'nothing', label: 'No Data' },
-    { value: 'FlowData', label: 'Disease Path' },
+    { value: 'nothing', label: 'هیچ' },
+    ...flowDataOptions.map(name => ({ value: `flowdata:${name}`, label: name })),
     ...datasetOptions.map(name => ({ value: name, label: name })),
     ...pointDataOptions.map(name => ({ value: `pointdata:${name}`, label: name }))
   ];
@@ -43,9 +45,10 @@ const Controls: React.FC<ControlsProps> = ({
   const handleCombinedDataChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
     
-    if (value === 'FlowData') {
-      onDataTypeChange(e);
-      onDatasetChange({ target: { value: 'nothing' } } as React.ChangeEvent<HTMLSelectElement>);
+    if (value.startsWith('flowdata:')) {
+      // Handle flow data selection
+      onDataTypeChange({ target: { value: 'FlowData' } } as React.ChangeEvent<HTMLSelectElement>);
+      onDatasetChange(e);
     } else if (value.startsWith('pointdata:')) {
       // Handle point data selection
       onDatasetChange(e);
@@ -61,7 +64,9 @@ const Controls: React.FC<ControlsProps> = ({
 
   // Get the current combined value
   const getCombinedValue = () => {
-    if (dataType === 'FlowData') return 'Disease Path';
+    if (dataType === 'FlowData' && selectedDataset.startsWith('flowdata:')) {
+      return selectedDataset.replace('flowdata:', '');
+    }
     if (selectedDataset !== 'nothing') {
       // Check if it's a point data selection
       if (selectedDataset.startsWith('pointdata:')) {
@@ -70,7 +75,7 @@ const Controls: React.FC<ControlsProps> = ({
       }
       return selectedDataset;
     }
-    return 'No Data';
+    return 'انتخاب کنید';
   };
 
   return (

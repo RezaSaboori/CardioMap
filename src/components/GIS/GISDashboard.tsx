@@ -35,7 +35,7 @@ import { loadPointData, ProcessedPointData } from '../../utils/pointDataLoader';
 import { getPointDataLegendConfig, convertToLegendGroup, getPointDataColorMap, getPointDataCategoryLabels } from './utils/pointDataLegendUtils';
 import { generatePointCardData, generatePointCardTitle } from './utils/pointDataCardUtils';
 import { generateFlowCardData, generateFlowCardTitle } from './utils/flowDataCardUtils';
-import { FLOW_DATA_CONFIGS } from '../../config/flowDataConfig';
+import { FLOW_DATA_CONFIGS, getFlowDataConfigByPrefixedName } from '../../config/flowDataConfig';
 import { loadFlowData, ProcessedFlowData } from '../../utils/flowDataLoader';
 import { getFlowDataColorMap, getFlowDataCategoryLabels } from '../../config/flowDataConfig';
 import Controls from './Controls';
@@ -215,15 +215,19 @@ const GISDashboard: React.FC = () => {
 
   useEffect(() => {
     const loadFlowDataAsync = async () => {
-      if (dataType === 'FlowData') {
+      if (dataType === 'FlowData' && selectedDataset.startsWith('flowdata:')) {
         setIsFlowDataLoading(true);
         setCurrentFlowDataConfig(null);
         
+        // Clear geodata when flow data is active to prevent color fills from persisting
+        setGeodata([]);
+        
         try {
-          // Load the first flow data configuration (you can extend this to support multiple)
-          const config = FLOW_DATA_CONFIGS[0];
+          // Get the flow data configuration using the helper function
+          const config = getFlowDataConfigByPrefixedName(selectedDataset);
+          
           if (!config) {
-            console.error('No flow data configuration found');
+            console.error(`No flow data configuration found for: ${selectedDataset}`);
             setIsFlowDataLoading(false);
             return;
           }
@@ -247,7 +251,7 @@ const GISDashboard: React.FC = () => {
     };
     
     loadFlowDataAsync();
-  }, [dataType]); // Depend on dataType instead of selectedFlowDataset
+  }, [dataType, selectedDataset]); // Depend on both dataType and selectedDataset
 
   // Map data loading - always load GeoJSON when map changes
   useEffect(() => {
@@ -272,9 +276,9 @@ const GISDashboard: React.FC = () => {
         setGeoJsonData(null);
       }
 
-      // Only load geodata if csv is defined for this map AND no dataset is selected
+      // Only load geodata if csv is defined for this map AND no dataset is selected AND not in flow data mode
       // (when dataset is selected, the dataset loading will handle geodata)
-      if (selectedDataset === 'nothing') {
+      if (selectedDataset === 'nothing' && dataType !== 'FlowData') {
         const csvPath = getMapCsvPath(mapId);
         if (csvPath) {
           try {
@@ -290,7 +294,7 @@ const GISDashboard: React.FC = () => {
       }
     };
     loadMapData();
-  }, [mapId, selectedDataset]);
+  }, [mapId, selectedDataset, dataType]);
 
   useEffect(() => {
     if (!geoJsonData) {
@@ -330,6 +334,13 @@ const GISDashboard: React.FC = () => {
     
     setFilteredPoints(filtered);
   }, [mapId, geoJsonData, currentPointDataConfig, dataType]);
+
+  // Clear selected data when map or data type changes
+  useEffect(() => {
+    setSelectedRegionData(null);
+    setSelectedPointData(null);
+    setSelectedFlowData(null);
+  }, [mapId, dataType, selectedDataset]);
 
   const handleMapChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setMapId(event.target.value);
@@ -511,8 +522,8 @@ const GISDashboard: React.FC = () => {
       }
     }
     
-    if (dataType === 'FlowData' && flows.length > 0) {
-      const flowLegend = getDynamicFlowLegendConfig(flows, colorMap, flowCategoryLabels, 'Disease Path');
+    if (dataType === 'FlowData' && flows.length > 0 && currentFlowDataConfig) {
+      const flowLegend = getDynamicFlowLegendConfig(flows, colorMap, flowCategoryLabels, currentFlowDataConfig.config.name);
       if (flowLegend) {
         return flowLegend;
       }
@@ -553,7 +564,7 @@ const GISDashboard: React.FC = () => {
                 beforeOpacity={beforeOpacity}
                 afterOpacity={0.3}
                 coloredDataOpacity={coloredDataOpacity}
-                selectedGeodata={isMapCompatibleWithDataset() ? (currentDatasetConfig?.dataColumn || 'nothing') : 'nothing'}
+                selectedGeodata={dataType === 'FlowData' ? 'nothing' : (isMapCompatibleWithDataset() ? (currentDatasetConfig?.dataColumn || 'nothing') : 'nothing')}
                 colorMode={getColorMode()}
                 defaultColors={defaultColors}
                 categoricalSchemes={isMapCompatibleWithDataset() ? categoricalSchemes : []}
@@ -615,7 +626,7 @@ const GISDashboard: React.FC = () => {
                 }
                 return selectedFlowData.flowName;
               }
-              return 'Select a region, marker, or flow to view data';
+              return '';
             })()}
             cards={(() => {
               const data = selectedRegionData?.data || selectedPointData?.data || selectedFlowData?.data;
@@ -638,7 +649,8 @@ const GISDashboard: React.FC = () => {
                       title: cardConfig.title,
                       value: value,
                       unit: cardConfig.unit,
-                      info: cardConfig.info
+                      info: cardConfig.info,
+                      colorCondition: cardConfig.colorCondition // Include dynamic color configuration
                     });
                   }
                 }

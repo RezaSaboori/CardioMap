@@ -40,7 +40,8 @@ export const generateFlowCardData = (
       title: cardConfig.title,
       value: displayValue,
       unit: cardConfig.unit,
-      info: cardConfig.info
+      info: cardConfig.info,
+      colorCondition: cardConfig.colorCondition // Include dynamic color configuration
     });
   });
 

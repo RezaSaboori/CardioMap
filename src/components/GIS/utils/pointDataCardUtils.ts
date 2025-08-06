@@ -33,7 +33,8 @@ export const generatePointCardData = (
       title: cardConfig.title,
       value: value,
       unit: cardConfig.unit,
-      info: cardConfig.info
+      info: cardConfig.info,
+      colorCondition: cardConfig.colorCondition // Include dynamic color configuration
     });
   });
 

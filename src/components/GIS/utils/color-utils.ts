@@ -70,3 +70,133 @@ export function blendColors(colors: string[]): string {
 
     return `rgb(${result.r}, ${result.g}, ${result.b})`;
 } 
+
+import { ColorCondition, DynamicColorConfig } from '../../config/geoDataConfig';
+
+/**
+ * Evaluates dynamic color conditions and returns the appropriate color
+ * @param value - The value to evaluate
+ * @param colorConfig - The dynamic color configuration
+ * @param data - Optional additional data context
+ * @returns The color to use for the card
+ */
+export const evaluateDynamicColor = (
+  value: any,
+  colorConfig: DynamicColorConfig,
+  data?: any
+): string => {
+  if (!colorConfig || !colorConfig.conditions) {
+    return colorConfig?.defaultColor || '#ffffff';
+  }
+
+  // Check each condition in order (first match wins)
+  for (const condition of colorConfig.conditions) {
+    let isMatch = false;
+
+    switch (condition.type) {
+      case 'threshold':
+        if (condition.condition) {
+          // Use custom condition function if provided
+          isMatch = condition.condition(value, data);
+        } else if (condition.value !== undefined) {
+          // Default threshold comparison
+          isMatch = value > condition.value;
+        }
+        break;
+
+      case 'range':
+        if (condition.minValue !== undefined && condition.maxValue !== undefined) {
+          isMatch = value >= condition.minValue && value <= condition.maxValue;
+        }
+        break;
+
+      case 'category':
+        if (condition.value !== undefined) {
+          isMatch = value === condition.value;
+        }
+        break;
+    }
+
+    if (isMatch) {
+      return condition.color;
+    }
+  }
+
+  // Return default color if no conditions match
+  return colorConfig.defaultColor || '#ffffff';
+};
+
+/**
+ * Determines if a value should trigger a warning color (e.g., red for low values)
+ * @param value - The numeric value to check
+ * @param threshold - The threshold value
+ * @param comparison - The comparison type ('lt', 'lte', 'gt', 'gte', 'eq')
+ * @returns True if the condition is met
+ */
+export const isWarningCondition = (
+  value: number,
+  threshold: number,
+  comparison: 'lt' | 'lte' | 'gt' | 'gte' | 'eq' = 'lt'
+): boolean => {
+  switch (comparison) {
+    case 'lt':
+      return value < threshold;
+    case 'lte':
+      return value <= threshold;
+    case 'gt':
+      return value > threshold;
+    case 'gte':
+      return value >= threshold;
+    case 'eq':
+      return value === threshold;
+    default:
+      return false;
+  }
+};
+
+/**
+ * Creates a simple threshold-based color condition
+ * @param threshold - The threshold value
+ * @param warningColor - Color to use when threshold is exceeded
+ * @param normalColor - Color to use when threshold is not exceeded
+ * @param comparison - The comparison type
+ * @returns A DynamicColorConfig object
+ */
+export const createThresholdColorConfig = (
+  threshold: number,
+  warningColor: string = '#ff6b6b',
+  normalColor: string = '#ffffff',
+  comparison: 'lt' | 'lte' | 'gt' | 'gte' = 'lt'
+): DynamicColorConfig => {
+  return {
+    defaultColor: normalColor,
+    conditions: [
+      {
+        type: 'threshold',
+        value: threshold,
+        color: warningColor,
+        condition: (value: any) => isWarningCondition(value, threshold, comparison)
+      }
+    ]
+  };
+};
+
+/**
+ * Creates a category-based color condition
+ * @param categoryColors - Object mapping category values to colors
+ * @param defaultColor - Default color for unmatched categories
+ * @returns A DynamicColorConfig object
+ */
+export const createCategoryColorConfig = (
+  categoryColors: Record<string, string>,
+  defaultColor: string = '#ffffff'
+): DynamicColorConfig => {
+  return {
+    defaultColor,
+    conditions: Object.entries(categoryColors).map(([category, color]) => ({
+      type: 'category' as const,
+      value: category,
+      color
+    }))
+  };
+}; 

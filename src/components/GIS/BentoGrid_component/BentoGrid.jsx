@@ -2,8 +2,9 @@ import React, { useRef, useEffect, useMemo } from 'react';
 import './BentoGrid.css';
 import * as THREE from 'three';
 
-import vertexShader from './shaders/vertex.glsl';
-import fragmentShader from './shaders/fragment.glsl';
+// Import shaders as strings
+import vertexShaderSource from './shaders/vertex.glsl';
+import fragmentShaderSource from './shaders/fragment.glsl';
 
 // Default card properties
 const defaultCardProps = {
@@ -37,6 +38,13 @@ const BentoGrid = ({ cards = [], columns = 4, children, backgroundColor, shader 
     const cardRefs = useRef({});
     const mouse = useRef(new THREE.Vector2(0.5, 0.5));
     const childrenArray = React.Children.toArray(children);
+
+    // Helper function to calculate screen scale based on grid dimensions
+    const calculateScreenScale = (width, height) => {
+        const minDimension = Math.min(width, height);
+        const baseDimension = 800; // Base size for scaling calculation
+        return Math.max(0.5, Math.min(2.0, minDimension / baseDimension));
+    };
 
     // Merge cards with default properties
     const mergedCards = useMemo(() => {
@@ -213,10 +221,11 @@ const BentoGrid = ({ cards = [], columns = 4, children, backgroundColor, shader 
                 iTime: { value: 0 },
                 iResolution: { value: new THREE.Vector2() },
                 iMouse: { value: mouse.current },
-                uLightRadius: { value: 20.0 }
+                uLightRadius: { value: 20.0 },
+                uScreenScale: { value: 1.0 }
             },
-            vertexShader,
-            fragmentShader,
+            vertexShader: vertexShaderSource,
+            fragmentShader: fragmentShaderSource,
             transparent: true
         });
 
@@ -239,6 +248,10 @@ const BentoGrid = ({ cards = [], columns = 4, children, backgroundColor, shader 
             
             renderer.setSize(w, h);
             material.uniforms.iResolution.value.set(w, h);
+            
+            // Calculate screen scale based on grid size
+            const screenScale = calculateScreenScale(w, h);
+            material.uniforms.uScreenScale.value = screenScale;
             
             // Update mask after resize
             setTimeout(updateMask, 10);
@@ -295,6 +308,9 @@ const BentoGrid = ({ cards = [], columns = 4, children, backgroundColor, shader 
                     const material = canvasRef.current.__material;
                     if (material) {
                         material.uniforms.iResolution.value.set(gridRect.width, gridRect.height);
+                        // Update screen scale
+                        const screenScale = calculateScreenScale(gridRect.width, gridRect.height);
+                        material.uniforms.uScreenScale.value = screenScale;
                     }
                 }
             }
@@ -328,6 +344,9 @@ const BentoGrid = ({ cards = [], columns = 4, children, backgroundColor, shader 
                     const material = canvasRef.current.__material;
                     if (material) {
                         material.uniforms.iResolution.value.set(gridRect.width, gridRect.height);
+                        // Update screen scale
+                        const screenScale = calculateScreenScale(gridRect.width, gridRect.height);
+                        material.uniforms.uScreenScale.value = screenScale;
                     }
                 }
             }
@@ -342,6 +361,9 @@ const BentoGrid = ({ cards = [], columns = 4, children, backgroundColor, shader 
                         const material = canvasRef.current.__material;
                         if (material) {
                             material.uniforms.iResolution.value.set(gridRect.width, gridRect.height);
+                            // Update screen scale
+                            const screenScale = calculateScreenScale(gridRect.width, gridRect.height);
+                            material.uniforms.uScreenScale.value = screenScale;
                         }
                     }
                 }

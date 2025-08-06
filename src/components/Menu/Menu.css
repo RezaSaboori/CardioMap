@@ -1,0 +1,291 @@
+@import '../../styles/theme.css';
+
+.menu-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 999999999;
+    box-sizing: border-box;
+    font-family: var(--font-family-system);
+    width: max-content;
+    /* Performance optimizations */
+    isolation: isolate;
+    contain: layout style;
+    
+    /* --- Sizing & Layout System --- */
+    --menu-font-size: 11px;
+    --menu-icon-size: 36px; 
+    --menu-knob-margin: 3px; /* Margin around the toggle knob */
+    --menu-indicator-padding: 2px; /* Padding inside the sliding indicator */
+    --menu-dock-padding: 8px;
+    --menu-dock-gap: 20px;
+
+    /* --- Unified Timing System --- */
+    --menu-timing-main: 0.6s;      /* Main layout transitions (dock, items) */
+    --menu-timing-quick: 0.3s;     /* Quick changes (colors, opacity) */
+    --menu-timing-smooth: 0.45s;   /* Smooth transforms (hover, movement) */
+    --menu-timing-fade: 0.8s;      /* Softer, more elegant fade transitions */
+    --menu-timing-instant: 0.1s;   /* Instant feedback (active states) */
+    --menu-easing-layout: cubic-bezier(0.25, 0.46, 0.45, 0.94);  /* Professional layout easing */
+    --menu-easing-transform: cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Subtle spring for transforms */
+    --menu-easing-quick: cubic-bezier(0.4, 0.0, 0.2, 1);  /* Material Design for quick changes */
+    --menu-easing-fade: cubic-bezier(0.23, 1, 0.32, 1);  /* Ultra-soft fade easing - gentle and elegant */
+
+    /* Calculated Variables (do not change) */
+    --menu-item-height: calc(var(--menu-icon-size) + (var(--menu-knob-margin) * 2));
+    --menu-indicator-height: var(--menu-item-height); /* Make indicator same height as item */
+
+    /* CSS Variables for glass effect */
+    --c-glass: #bbbbbc;
+    --c-light: #fff;
+    --c-dark: #000;
+    --c-content: #224;
+    --c-bg: #e8e8e9;
+    --glass-reflex-dark: 1;
+    --glass-reflex-light: 0.5;
+    --saturation: 300%;
+}
+
+.glass-dock {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--menu-dock-gap);
+    box-sizing: border-box;
+    padding: var(--menu-dock-padding);
+    border: none;
+    border-radius: 99em;
+    background-color: color-mix(in srgb, var(--c-glass) 30%, transparent);
+    backdrop-filter: blur(8px) saturate(var(--saturation)) url(#glass-distortion);
+    -webkit-backdrop-filter: blur(8px) saturate(var(--saturation));
+    box-shadow: 
+        inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 10%), transparent),
+        inset 1px 1.5px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 90%), transparent),
+        inset -0.5px -0.5px 0px -0.5px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 80%), transparent),
+        inset -2px -3px 1px -2px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) *60%), transparent),
+        inset -0.3px -1px 4px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 12%), transparent),
+        inset -1.5px 2.5px 0px -2px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent),
+        inset 0px 3px 4px -2px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent),
+        inset 2px -6.5px 1px -4px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent),
+        0px 1px 5px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 10%), transparent),
+        0px 6px 16px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 8%), transparent);
+    
+    /* Synchronized dock transitions - unified timing system */
+    transition: gap var(--menu-timing-main) var(--menu-easing-layout),
+                padding var(--menu-timing-main) var(--menu-easing-layout),
+                background-color var(--menu-timing-quick) var(--menu-easing-quick),
+                backdrop-filter var(--menu-timing-quick) var(--menu-easing-quick),
+                box-shadow var(--menu-timing-quick) var(--menu-easing-quick);
+}
+
+.toggle-indicator {
+    position: absolute;
+    top: var(--menu-dock-padding); /* Align with top of item */
+    height: var(--menu-indicator-height);
+    border-radius: 99em;
+    backdrop-filter: blur(30px) saturate(var(--saturation));
+    -webkit-backdrop-filter: blur(30px) saturate(var(--saturation));
+    background-color: color-mix(in srgb, var(--c-glass) 60%, transparent);
+    z-index: -1;
+    box-sizing: border-box;
+    box-shadow: 
+        inset 0 0 0 1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 10%), transparent),
+        inset -1.5px -1px 0px -1px color-mix(in srgb, var(--c-light) calc(var(--glass-reflex-light) * 80%), transparent),
+        inset -1px 2px 3px -1px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 20%), transparent),
+        0px 3px 6px 0px color-mix(in srgb, var(--c-dark) calc(var(--glass-reflex-dark) * 8%), transparent);
+    /* PRESERVED: Toggle indicator sliding animation - dual-mode transitions */
+    transition: left var(--menu-timing-smooth) var(--menu-easing-layout), 
+                width var(--menu-timing-smooth) var(--menu-easing-layout), 
+                top var(--menu-timing-smooth) var(--menu-easing-layout), 
+                height var(--menu-timing-smooth) var(--menu-easing-layout),
+                opacity var(--menu-timing-fade) var(--menu-easing-fade),
+                box-shadow var(--menu-timing-quick) var(--menu-easing-quick);
+    transition-delay: 0ms; /* Can be overridden by JavaScript for staggered effects */
+    /* Ensure smooth hardware acceleration */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+/* Smooth fading visibility states for expand/collapse transitions */
+.toggle-indicator.visible {
+    opacity: 1;
+}
+
+.toggle-indicator.hidden {
+    opacity: 0;
+}
+
+.menu-container.compact .toggle-indicator {
+    box-shadow: none;
+    /* 🎯 PRESERVED: Same dual-mode timing with soft fade for compact state */
+    transition: left var(--menu-timing-smooth) var(--menu-easing-layout), 
+                width var(--menu-timing-smooth) var(--menu-easing-layout), 
+                top var(--menu-timing-smooth) var(--menu-easing-layout), 
+                height var(--menu-timing-smooth) var(--menu-easing-layout),
+                opacity var(--menu-timing-fade) var(--menu-easing-fade),
+                box-shadow var(--menu-timing-quick) var(--menu-easing-quick);
+    transition-delay: 0ms; /* Can be overridden by JavaScript for staggered effects */
+}
+
+.glass-item {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: var(--menu-item-height);
+    box-sizing: border-box;
+    border-radius: 99em;
+    color: var(--c-content);
+    /* 🎭 Consolidated item transitions - single definition for all states */
+    transition: all var(--menu-timing-main) var(--menu-easing-layout),
+                transform var(--menu-timing-smooth) var(--menu-easing-transform),
+                color var(--menu-timing-quick) var(--menu-easing-quick);
+    cursor: pointer;
+    will-change: transform, width, padding; /* Optimization hint */
+    /* Prevent interference with other elements */
+    position: relative;
+    z-index: 1;
+}
+
+.glass-item:not(.compact-mode) {
+    padding: 0 4px;
+}
+
+.glass-item:hover {
+    color: color-mix(in srgb, var(--c-content), var(--c-light) 20%);
+}
+
+.glass-item.selected {
+    color: var(--c-content);
+    cursor: pointer;
+}
+
+.glass-item.non-selectable {
+    padding: 0;
+    /* Non-selectable items (like theme toggle) should not participate in selection */
+}
+
+.glass-item.non-selectable:hover {
+    /* Override hover effect for non-selectable items to use original hover color */
+    color: color-mix(in srgb, var(--c-content), var(--c-light) 20%);
+}
+
+.glass-item.compact-mode {
+    padding: 0;
+    width: var(--menu-item-height);
+    min-width: var(--menu-item-height);
+}
+
+.glass-item:active {
+    transform: translateY(0px);
+    transition: transform var(--menu-timing-instant) var(--menu-easing-quick);
+    
+}
+
+.glass-item-object {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Vertical layout adjustments */
+.menu-container.vertical .glass-dock {
+    flex-direction: column;
+}
+
+.menu-container.vertical .toggle-indicator {
+    top: auto;
+    left: 4.5px;
+    width: calc(100% - 10px);
+    height: auto;
+}
+
+/* Non-glassy fallback styles */
+.menu-container:not(.glassy) .glass-dock {
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.menu-container:not(.glassy) .toggle-indicator {
+    background-color: rgba(255, 255, 255, 0.2);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    box-shadow: 0px 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode adjustments */
+body.dark .menu-container {
+    --c-glass: #333;
+    --c-light: #fff;
+    --c-dark: #000;
+    --c-content: #ddd;
+    --c-bg: #111;
+}
+
+body.dark .menu-container:not(.glassy) .glass-dock {
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+body.dark .menu-container:not(.glassy) .toggle-indicator {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* MenuItem styles - using unified timing system */
+.menu-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all var(--menu-timing-main) var(--menu-easing-layout);
+}
+
+.menu-item.compact {
+    gap: 0;
+    padding: 0;
+}
+
+.menu-item.expanded {
+    gap: 8px;
+    padding: 3px 14px 3px 0px;
+    transition: gap var(--menu-timing-main) var(--menu-easing-layout), 
+                padding var(--menu-timing-main) var(--menu-easing-layout);
+}
+
+.menu-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--menu-icon-size);
+    height: var(--menu-icon-size);
+    flex-shrink: 0;
+    transition: transform var(--menu-timing-main) var(--menu-easing-transform);
+}
+
+.menu-item-icon img,
+.menu-item-icon svg {
+    width: 100%;
+    height: 100%;
+    transition: transform var(--menu-timing-smooth) var(--menu-easing-transform);
+}
+
+.menu-item-text {
+    font-size: var(--menu-font-size);
+    font-weight: 500;
+    white-space: nowrap;
+    color: var(--color-gray12);
+    transition: opacity var(--menu-timing-main) var(--menu-easing-layout), 
+                transform var(--menu-timing-main) var(--menu-easing-transform);
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.glass-item.compact-mode .menu-item-text {
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity var(--menu-timing-main) var(--menu-easing-quick), 
+                transform var(--menu-timing-main) var(--menu-easing-layout);
+    pointer-events: none;
+}
+

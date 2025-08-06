@@ -3,11 +3,26 @@
 // Import CSV files with Vite's URL handling
 import IranProvincesSampleCsv from '../datasets/IranProvincesSample.csv?url';
 
+export interface ColorCondition {
+  type: 'threshold' | 'range' | 'category';
+  value?: number | string;
+  minValue?: number;
+  maxValue?: number;
+  color: string;
+  condition?: (value: any, data: any) => boolean; // Custom condition function
+}
+
+export interface DynamicColorConfig {
+  defaultColor: string;
+  conditions: ColorCondition[];
+}
+
 export interface CardConfig {
   [columnName: string]: {
     title: string;
     unit?: string;
     info?: string;
+    colorCondition?: DynamicColorConfig; // Dynamic color configuration
   };
 }
 
@@ -26,7 +41,7 @@ export interface GeoDatasetConfig {
 
 export const geoDataConfig: GeoDatasetConfig[] = [
   {
-    name: 'Iran Province Population',
+    name: 'جمعیت',
     type: 'numeric',
     csvPath: IranProvincesSampleCsv,
     geoJsonPath: '../../datasets/geojson/Iran.json',
@@ -38,7 +53,24 @@ export const geoDataConfig: GeoDatasetConfig[] = [
       pop: {
         title: 'Population',
         unit: 'people',
-        info: 'Total population of the province'
+        info: 'Total population of the province',
+        colorCondition: {
+          defaultColor: '#ffffff',
+          conditions: [
+            {
+              type: 'threshold',
+              value: 1000000,
+              color: '#ff6b6b', // Red for high population
+              condition: (value) => value > 1000000
+            },
+            {
+              type: 'threshold',
+              value: 500000,
+              color: '#4ecdc4', // Teal for medium population
+              condition: (value) => value > 500000 && value <= 1000000
+            }
+          ]
+        }
       },
       Area: {
         title: 'Area',
@@ -48,7 +80,7 @@ export const geoDataConfig: GeoDatasetConfig[] = [
     }
   },
   {
-    name: 'Health Status',
+    name: 'وضعیت سلامت',
     type: 'categorical',
     csvPath: IranProvincesSampleCsv,
     geoJsonPath: '../../datasets/geojson/Iran.json',
@@ -63,17 +95,83 @@ export const geoDataConfig: GeoDatasetConfig[] = [
     cardConfig: {
       health_status: {
         title: 'Health Status',
-        info: 'Overall health status of the province'
+        info: 'Overall health status of the province',
+        colorCondition: {
+          defaultColor: '#ffffff',
+          conditions: [
+            {
+              type: 'category',
+              value: 'poor',
+              color: '#ff6b6b' // Red for poor health
+            },
+            {
+              type: 'category',
+              value: 'medium',
+              color: '#ffd93d' // Yellow for medium health
+            },
+            {
+              type: 'category',
+              value: 'good',
+              color: '#6bcf7f' // Green for good health
+            }
+          ]
+        }
       },
       'Doctors per 10k': {
         title: 'Doctors per 10k',
         unit: 'doctors',
-        info: 'Healthcare professionals per 10,000 residents'
+        info: 'Healthcare professionals per 10,000 residents',
+        colorCondition: {
+          defaultColor: '#ffffff',
+          conditions: [
+            {
+              type: 'threshold',
+              value: 10,
+              color: '#ff6b6b', // Red for low doctor ratio
+              condition: (value) => value < 10
+            },
+            {
+              type: 'threshold',
+              value: 20,
+              color: '#4ecdc4', // Teal for medium doctor ratio
+              condition: (value) => value >= 10 && value < 20
+            },
+            {
+              type: 'threshold',
+              value: 20,
+              color: '#6bcf7f', // Green for high doctor ratio
+              condition: (value) => value >= 20
+            }
+          ]
+        }
       },
       'Hospital Beds': {
         title: 'Hospital Beds',
         unit: 'beds',
-        info: 'Total number of hospital beds'
+        info: 'Total number of hospital beds',
+        colorCondition: {
+          defaultColor: '#ffffff',
+          conditions: [
+            {
+              type: 'threshold',
+              value: 1000,
+              color: '#ff6b6b', // Red for low bed count
+              condition: (value) => value < 1000
+            },
+            {
+              type: 'threshold',
+              value: 3000,
+              color: '#ffd93d', // Yellow for medium bed count
+              condition: (value) => value >= 1000 && value < 3000
+            },
+            {
+              type: 'threshold',
+              value: 3000,
+              color: '#6bcf7f', // Green for high bed count
+              condition: (value) => value >= 3000
+            }
+          ]
+        }
       },
       Area: {
         title: 'Area',

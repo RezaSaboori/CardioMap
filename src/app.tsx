@@ -1,11 +1,14 @@
 import React from 'react';
-import { ThemeToggle, GISDashboard } from './components/GIS';
+import { IntegratedMenu, GISDashboard } from './components/GIS';
+import TitleBlock from './components/TitleBlock';
 import './app.css';
+
 
 const App: React.FC = () => {
   return (
     <div className="app-wrapper">
-      <ThemeToggle />
+      <IntegratedMenu />
+      <TitleBlock />
       <div className="app-container">
         <GISDashboard />
       </div>

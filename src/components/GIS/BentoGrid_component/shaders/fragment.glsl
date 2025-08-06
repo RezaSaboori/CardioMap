@@ -4,6 +4,7 @@ uniform vec2 iResolution;
 uniform vec2 iMouse;
 uniform float uLightRadius;
 uniform float u_blendFactor;
+uniform float uScreenScale; // New uniform for screen size scaling
 
 // --- Noise and FBM Functions ---
 float rand(vec2 p) {
@@ -30,10 +31,14 @@ float fbm(vec2 p) {
 }
 
 float getWaveHeight(vec2 p) {
-    vec2 r1 = vec2(fbm(p + 0.02 * iTime), fbm(p + 0.005 * iTime));
-    vec2 r2 = vec2(fbm(p + 0.15 * iTime + 10. * r1), fbm(p + 0.12 * iTime + 12. * r1));
-    float foregroundWaves = fbm(p + r2);
-    float backgroundWaves = fbm(p * 0.7 + iTime * 0.02);
+    // Scale the wave frequency based on screen size
+    float waveScale = uScreenScale;
+    vec2 scaledP = p * waveScale;
+    
+    vec2 r1 = vec2(fbm(scaledP + 0.02 * iTime), fbm(scaledP + 0.005 * iTime));
+    vec2 r2 = vec2(fbm(scaledP + 0.15 * iTime + 10. * r1), fbm(scaledP + 0.12 * iTime + 12. * r1));
+    float foregroundWaves = fbm(scaledP + r2);
+    float backgroundWaves = fbm(scaledP * 0.7 + iTime * 0.02);
     return mix(foregroundWaves, backgroundWaves, 0.4);
 }
 
@@ -51,14 +56,17 @@ void main() {
     );
     vec3 normal = normalize(vec3(-grad.x, -grad.y, eps));
     
-    // Lighting calculation
+    // Lighting calculation with screen-size dependent radius
     vec3 lightPos = vec3(mouse.xy, 0.1); 
     vec3 lightDir = normalize(lightPos - vec3(p, centerHeight));
     float diffuse = max(0.0, dot(normal, lightDir));
     float mouseDist = distance(lightPos.xy, p);
-    float attenuation = 1.0 / (1.0 + mouseDist * mouseDist * uLightRadius);
+    
+    // Scale light radius based on screen size
+    float scaledLightRadius = uLightRadius * uScreenScale;
+    float attenuation = 1.0 / (1.0 + mouseDist * mouseDist * scaledLightRadius);
     float waveLighting = diffuse * attenuation * 0.3; 
-    float airGlow = 0.2 / (1.0 + mouseDist * mouseDist * (uLightRadius * 2.0));
+    float airGlow = 0.2 / (1.0 + mouseDist * mouseDist * (scaledLightRadius * 2.0));
     
     // Base wave color calculation - GRAYSCALE ONLY
     float baseValue = getWaveHeight(p);

@@ -12,13 +12,14 @@ const Card = ({ header, children, visibleItemsInitial = 1, id, beforeSize = null
   const [isPinned, setIsPinned] = useState(false);
   const h1Ref = useRef(null);
   const [isHeaderOverflowing, setIsHeaderOverflowing] = useState(false);
-  const [animationDuration, setAnimationDuration] = useState('10s');
+  const [isCardValueOverflowing, setIsCardValueOverflowing] = useState(false);
+  const [headerAnimationDuration, setHeaderAnimationDuration] = useState('10s');
   
   const childrenArray = React.Children.toArray(children);
   const hasMoreContent = childrenArray.length > visibleItemsInitial;
 
   useLayoutEffect(() => {
-    const checkOverflow = () => {
+    const checkHeaderOverflow = () => {
       const el = h1Ref.current;
       if (el) {
         const isOverflowing = el.scrollWidth > el.clientWidth;
@@ -26,24 +27,78 @@ const Card = ({ header, children, visibleItemsInitial = 1, id, beforeSize = null
           setIsHeaderOverflowing(isOverflowing);
           if (isOverflowing) {
             const duration = el.scrollWidth / 50; // 50px per second
-            setAnimationDuration(`${duration.toFixed(2)}s`);
+            setHeaderAnimationDuration(`${duration.toFixed(2)}s`);
           }
         }
       }
     };
 
-    const el = h1Ref.current;
-    if (!el) return;
+            const checkCardValueOverflow = () => {
+          // Find card value elements within this specific card
+          const cardElement = document.querySelector(`[data-card-id="${id}"]`);
+          if (cardElement) {
+            const cardValueEls = cardElement.querySelectorAll('.card-value');
+            cardValueEls.forEach(el => {
+              // Check if ellipsis is actually visible (text is truncated)
+              const hasEllipsis = el.scrollWidth > el.clientWidth;
+              
+              // Additional check: ensure the element has proper dimensions
+              const isValidElement = el.clientWidth > 0 && el.scrollWidth > 0;
+              
+              // Check if the text is actually truncated (ellipsis visible)
+              const computedStyle = window.getComputedStyle(el);
+              const isTextTruncated = computedStyle.textOverflow === 'ellipsis' && 
+                                     computedStyle.overflow === 'hidden' && 
+                                     el.scrollWidth > el.clientWidth;
+              
+              // Only add overflowing class if text is actually truncated (ellipsis is visible)
+              const shouldAnimate = isTextTruncated && isValidElement;
+              
+              if (shouldAnimate) {
+                el.classList.add('overflowing');
+              } else {
+                el.classList.remove('overflowing');
+              }
+            });
+          }
+        };
 
-    checkOverflow();
+    const headerEl = h1Ref.current;
+    const cardElement = document.querySelector(`[data-card-id="${id}"]`);
 
-    const resizeObserver = new ResizeObserver(checkOverflow);
-    resizeObserver.observe(el);
+    if (headerEl) {
+      checkHeaderOverflow();
+      const headerResizeObserver = new ResizeObserver(checkHeaderOverflow);
+      headerResizeObserver.observe(headerEl);
+    }
+
+    if (cardElement) {
+      // Initial check
+      checkCardValueOverflow();
+      
+      // Set up ResizeObserver for card value overflow
+      const cardValueResizeObserver = new ResizeObserver(() => {
+        // Add a small delay to ensure the DOM has updated
+        requestAnimationFrame(checkCardValueOverflow);
+      });
+      cardValueResizeObserver.observe(cardElement);
+    }
 
     return () => {
-      resizeObserver.unobserve(el);
+      if (headerEl) {
+        const headerResizeObserver = new ResizeObserver(checkHeaderOverflow);
+        headerResizeObserver.unobserve(headerEl);
+      }
+      if (cardElement) {
+        const cardValueResizeObserver = new ResizeObserver(() => {
+          requestAnimationFrame(checkCardValueOverflow);
+        });
+        cardValueResizeObserver.unobserve(cardElement);
+      }
     };
-  }, [header, isHeaderOverflowing]);
+  }, [header, isHeaderOverflowing, id]);
+
+
 
   const toggleExpanded = () => {
     if (!hasMoreContent) return;
@@ -78,6 +133,7 @@ const Card = ({ header, children, visibleItemsInitial = 1, id, beforeSize = null
     <div 
       className={`card ${isExpanded ? 'card-expanded' : ''}`}
       style={cardStyle}
+      data-card-id={id}
     >
       <div className="card-canvas-wrapper"></div> {/* Shader shows here */}
       <div className="color-blend-overlay"></div>
@@ -89,7 +145,7 @@ const Card = ({ header, children, visibleItemsInitial = 1, id, beforeSize = null
             <h1 
               ref={h1Ref} 
               className={isHeaderOverflowing ? 'overflowing' : ''}
-              style={{ '--scroll-duration': animationDuration }}
+              style={{ '--scroll-duration': headerAnimationDuration }}
             >
               <span data-text={header}>{header}</span>
             </h1>

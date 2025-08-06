@@ -59,10 +59,8 @@
 
 /* Data Cards Section */
 .data-cards-section {
-  background: var(--background-color);
-  border-left: 1px solid var(--border-color);
   overflow-y: auto;
-  padding: var(--spacing-md);
+  padding: 0 var(--spacing-md);
   height: 100%;
   min-height: 0;
   display: flex;

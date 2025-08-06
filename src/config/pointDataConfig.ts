@@ -2,12 +2,14 @@
 
 // Import CSV files with Vite's URL handling
 import ResearchCenterCsv from '../datasets/ResearchCenter.csv?url';
+import { ColorCondition, DynamicColorConfig } from './geoDataConfig';
 
 export interface PointDataCardConfig {
   [columnName: string]: {
     title: string;
     unit?: string;
     info?: string;
+    colorCondition?: DynamicColorConfig; // Dynamic color configuration
   };
 }
 
@@ -25,7 +27,7 @@ export interface PointDataConfig {
 
 export const POINT_DATA_CONFIGS: PointDataConfig[] = [
   {
-    name: "Research Centers",
+    name: "مراکز پژوهشی",
     csvPath: ResearchCenterCsv,
     idColumn: "name:en", // Use English name as ID
     nameColumn: "name:fa", // Use Persian name for display
@@ -48,7 +50,27 @@ export const POINT_DATA_CONFIGS: PointDataConfig[] = [
       },
       "Category:en": {
         title: "Category",
-        info: "Type of research facility"
+        info: "Type of research facility",
+        colorCondition: {
+          defaultColor: '#ffffff',
+          conditions: [
+            {
+              type: 'category',
+              value: 'Hospital',
+              color: '#3182ce' // Blue for hospitals
+            },
+            {
+              type: 'category',
+              value: 'Research Center',
+              color: '#fbbf24' // Yellow for research centers
+            },
+            {
+              type: 'category',
+              value: 'Research Facility',
+              color: '#10b981' // Green for research facilities
+            }
+          ]
+        }
       },
       "Category:fa": {
         title: "Category (Persian)",
@@ -65,7 +87,30 @@ export const POINT_DATA_CONFIGS: PointDataConfig[] = [
       "SizeMetric": {
         title: "Size Metric",
         unit: "units",
-        info: "Relative size or capacity metric"
+        info: "Relative size or capacity metric",
+        colorCondition: {
+          defaultColor: '#ffffff',
+          conditions: [
+            {
+              type: 'threshold',
+              value: 50,
+              color: '#ff6b6b', // Red for small facilities
+              condition: (value) => value < 50
+            },
+            {
+              type: 'threshold',
+              value: 100,
+              color: '#ffd93d', // Yellow for medium facilities
+              condition: (value) => value >= 50 && value < 100
+            },
+            {
+              type: 'threshold',
+              value: 100,
+              color: '#6bcf7f', // Green for large facilities
+              condition: (value) => value >= 100
+            }
+          ]
+        }
       },
       "Phone": {
         title: "Phone",

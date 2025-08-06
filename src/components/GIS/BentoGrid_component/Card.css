@@ -103,10 +103,9 @@
   width: 100%;
   height: 100%;
   border-radius: var(--card-border-radius, 32px);
-  z-index: 2; /* Above canvas (z-index: 1) */
-  background: var(--card-background-color);
-  mix-blend-mode: overlay; /* This will now correctly blend with the shader */
-  opacity: 1; /* Opacity will now work as expected */
+  z-index: 2; /* Above canvas, below blur */
+  background: var(--card-background-color, rgba(0, 0, 0, 0.1));
+  mix-blend-mode: multiply;
   pointer-events: none;
 }
 
@@ -114,7 +113,7 @@
   box-sizing: border-box;
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
   width: 100%;
   margin-bottom: var(--card-padding, 24px);
@@ -179,31 +178,58 @@
 }
 
 .card-pin-btn, .card-info-btn, .card-expand-btn {
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 50%;
-  width: 24px;
-  height: 24px;
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  flex-shrink: 0;
-  position: relative;
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 50% !important;
+  width: 20px !important;
+  height: 20px !important;
+  color: white !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+  flex-shrink: 0 !important;
+  position: relative !important;
+  /* Override global button styles */
+  padding: 2px !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  font-family: inherit !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
 
 .card-pin-btn svg, .card-info-btn svg, .card-expand-btn svg {
   transition: all 0.2s ease;
+  width: 16px !important;
+  height: 16px !important;
+  fill: currentColor !important;
+  color: white !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* Force SVG content to be visible */
+.card-pin-btn svg path, .card-info-btn svg path, .card-expand-btn svg path {
+  fill: currentColor !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+
+.card-pin-btn svg g, .card-info-btn svg g, .card-expand-btn svg g {
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 
 .card-pin-btn:hover, .card-info-btn:hover, .card-expand-btn:hover {
-  background: rgba(255, 255, 255, 0.3);
-  border-color: rgba(255, 255, 255, 0.5);
-  transform: scale(1.1);
+  background: rgba(255, 255, 255, 0.3) !important;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  transform: scale(1.1) !important;
+  box-shadow: none !important;
 }
 
 .card-pin-btn.pinned {
@@ -214,8 +240,14 @@
   opacity: 1;
 }
 
-.card-expand-btn:active {
-  transform: scale(0.95);
+.card-pin-btn:focus, .card-info-btn:focus, .card-expand-btn:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.card-pin-btn:active, .card-info-btn:active, .card-expand-btn:active {
+  transform: scale(0.95) !important;
+  box-shadow: none !important;
 }
 
 .card-expand-btn:disabled {
@@ -271,17 +303,16 @@
 .card-content p {
   margin: 0;
   font-size: 0.8rem;
-  line-height: 1.5;
   opacity: 0.7;
+  line-height: 1.4;
 }
 
 .card-content ul {
-  list-style-type: none;
   margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  padding-left: 1.2rem;
+  font-size: 0.8rem;
+  opacity: 0.7;
+  line-height: 1.4;
 }
 
 .card-content .text-sm {
@@ -289,21 +320,75 @@
   opacity: 0.6;
 }
 
-/* Fades out the last item to indicate more content */
 .card:not(.card-expanded) .card-content > *:last-child {
-  position: relative;
-  /* Add some margin to not cut off the fade */
+  margin-bottom: 0;
 }
 
 .card-more-indicator {
-  content: '';
+  font-size: 0.75rem;
+  opacity: 0.6;
+  font-style: italic;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* Card value wrapper styles inspired by the provided example */
+.card-value-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  box-sizing: border-box;
+  padding: 0 !important; /* Override card-content > * padding */
+  border: none !important; /* Override card-content > * border */
+  background: transparent !important; /* Override card-content > * background */
+}
+
+.card-value {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-light);
+  margin-bottom: 9px;
+  text-shadow: var(--elevation-3);
+  color: white;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  line-height: 1.4;
+}
+
+
+/* Card value overflow handling - NO hover behavior */
+
+.card-value > span::after {
+  content: attr(data-text);
   position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 60%;
-  background: linear-gradient(to top, rgba(0, 0, 0, 1), transparent);
-  pointer-events: none;
-  border-radius: var(--child-border-radius);
-  margin: -16px; /* Counteract padding on parent */
+  left: 100%;
+  top: 0;
+  white-space: nowrap;
+  padding-left: 32px;
+}
+
+/* RTL support for Persian text */
+.card-value[dir="rtl"] > span::after {
+  left: auto;
+  right: 100%;
+  padding-left: 0;
+  padding-right: 32px;
+}
+
+.card-unit {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-light);
+  margin-left: var(--spacing-xs);
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.4;
 }

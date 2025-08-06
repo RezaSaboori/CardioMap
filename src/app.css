@@ -12,7 +12,9 @@
 }
 
 .app-wrapper {
-  width: 100%;
+  margin-top: 10rem;
+  width: 80%;
+  max-width: 1400px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -34,8 +36,7 @@
   gap: var(--spacing-xl);
   min-height: calc(100vh - var(--spacing-4xl));
   box-sizing: border-box;
-  width: 80%;
-  max-width: 1400px;
+  width: 100%;
   overflow: hidden;
   background-color: var(--color-gray2);
   border-radius: var(--border-radius-container-lg);
