@@ -26,7 +26,6 @@ export const BasicModularMenu = () => {
       icon: 'home',
       text: 'Home',
       onClick: (index) => {
-        console.log('Home clicked', index);
         setSelectedIndex(index);
       }
     },
@@ -34,7 +33,6 @@ export const BasicModularMenu = () => {
       icon: 'profile',
       text: 'Profile',
       onClick: (index) => {
-        console.log('Profile clicked', index);
         setSelectedIndex(index);
       }
     },
@@ -42,7 +40,6 @@ export const BasicModularMenu = () => {
       icon: 'contact',
       text: 'Contact',
       onClick: (index) => {
-        console.log('Contact clicked', index);
         setSelectedIndex(index);
       }
     }
@@ -143,7 +140,7 @@ export const HoverMenu = () => {
       icon: 'settings',
       text: 'Settings',
       isNonSelectable: true, // Won't participate in selection
-      onClick: (index) => console.log('Settings clicked')
+      onClick: () => {}
     }
   ];
 

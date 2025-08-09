@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { geoDataConfig } from '../../config/geoDataConfig';
-import { getMapGeoJsonPath, getMapDisplayName } from '../../config/geoJsonConfig';
+import { getMapGeoJsonPath } from '../../config/geoJsonConfig';
 import { getPointDataConfigNames } from '../../config/pointDataConfig';
 import { getFlowDataConfigNames } from '../../config/flowDataConfig';
 import DropdownMenu from './DropdownMenu';
+import { getControlItems, getNestedControlItems, validateControlsConfig, resolveDataControlValue, ControlNode } from '../../config/controlsConfig';
 
 export interface ControlsProps {
   selectedDataset: string;
@@ -33,14 +34,88 @@ const Controls: React.FC<ControlsProps> = ({
   const datasetOptions = compatibleDatasetNames;
   const pointDataOptions = getPointDataConfigNames();
   const flowDataOptions = getFlowDataConfigNames();
-  
-  // Combined data options (migrated to new system)
-  const dataOptions = [
-    { value: 'nothing', label: 'هیچ' },
-    ...flowDataOptions.map(name => ({ value: `flowdata:${name}`, label: name })),
-    ...datasetOptions.map(name => ({ value: name, label: name })),
-    ...pointDataOptions.map(name => ({ value: `pointdata:${name}`, label: name }))
-  ];
+
+  // Validate controls config once
+  useEffect(() => {
+    validateControlsConfig();
+  }, []);
+
+  // Read items from central controls config
+  const configuredDataItems = getControlItems('01');
+  const configuredMapItems = getControlItems('02');
+  const nestedDataItems = getNestedControlItems('01');
+  const nestedMapItems = getNestedControlItems('02');
+
+  const resolvedDataItems = configuredDataItems.map(item => ({
+    label: item.label,
+    value: resolveDataControlValue(item.value)
+  }));
+
+  // Filter configured data items by current map compatibility for dataset items
+  const isDatasetValue = (val: string) => (
+    val !== 'nothing' && !val.startsWith('flowdata:') && !val.startsWith('pointdata:')
+  );
+
+  const dataOptions = resolvedDataItems.filter(item => {
+    if (!isDatasetValue(item.value)) return true;
+    return datasetOptions.includes(item.value);
+  });
+
+  // Helper to filter and render nested items (for DropdownMenu with submenus)
+  const isAllowedLeaf = (val?: string) => {
+    if (!val) return false;
+    const resolved = resolveDataControlValue(val);
+    if (!isDatasetValue(resolved)) return true;
+    return datasetOptions.includes(resolved);
+  };
+
+  const renderNodes = (nodes: ControlNode[], type: 'data' | 'map'): React.ReactNode => {
+    return nodes.map((node, idx) => {
+      const key = `${node.label}-${idx}`;
+      if (node.children && node.children.length > 0) {
+        // For parent items, render submenu only if it has at least one valid child
+        const childrenContent = renderNodes(
+          node.children.filter((child) => {
+            if (type === 'map') return true;
+            return child.children ? true : isAllowedLeaf(child.value);
+          }),
+          type
+        );
+        const hasChildren = React.Children.count(childrenContent) > 0;
+        if (!hasChildren) return null;
+        return (
+          <li key={key} className="has-submenu" tabIndex={-1}>
+            <span className="item-label">{node.label}</span>
+            <div className="submenu-arrow" aria-hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <g transform="translate(0 -32)">
+                  <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
+                </g>
+              </svg>
+            </div>
+            <ul className="dropdown-submenu">{childrenContent}</ul>
+          </li>
+        );
+      }
+
+      // Leaf
+      if (type === 'data') {
+        const resolved = resolveDataControlValue(node.value as string);
+        if (isDatasetValue(resolved) && !datasetOptions.includes(resolved)) return null;
+        return (
+          <li key={key} data-value={resolved}>
+            {node.label}
+          </li>
+        );
+      }
+      // map leaf
+      return (
+        <li key={key} data-value={node.value}>
+          {node.label}
+        </li>
+      );
+    });
+  };
 
   const handleCombinedDataChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const value = e.target.value;
@@ -64,17 +139,9 @@ const Controls: React.FC<ControlsProps> = ({
 
   // Get the current combined value
   const getCombinedValue = () => {
-    if (dataType === 'FlowData' && selectedDataset.startsWith('flowdata:')) {
-      return selectedDataset.replace('flowdata:', '');
-    }
-    if (selectedDataset !== 'nothing') {
-      // Check if it's a point data selection
-      if (selectedDataset.startsWith('pointdata:')) {
-        // Extract the actual name from pointdata:Research Centers -> Research Centers
-        return selectedDataset.replace('pointdata:', '');
-      }
-      return selectedDataset;
-    }
+    const currentValue = selectedDataset;
+    const match = resolvedDataItems.find(i => i.value === currentValue);
+    if (match) return match.label;
     return 'انتخاب کنید';
   };
 
@@ -95,7 +162,7 @@ const Controls: React.FC<ControlsProps> = ({
         flexWrap: 'nowrap'
       }}>
                  نقشه توزیع{' '}
-         <DropdownMenu
+          <DropdownMenu
            value={getCombinedValue()}
                        onSelect={(value: string) => {
               const event = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
@@ -110,16 +177,12 @@ const Controls: React.FC<ControlsProps> = ({
            gradientColors={[['var(--color-gray1)', 0.3], ['var(--color-gray1)', 0.01]]}
            shadow="var(--elevation-2)"
            hoverBackground={['var(--color-gray12)', 0.15]}
-         >
-           {dataOptions.map(option => (
-             <li key={option.value} data-value={option.value}>
-               {option.label}
-             </li>
-           ))}
-         </DropdownMenu>
-         {' '}نسبت به{' '}
-                   <DropdownMenu
-            value={getMapDisplayName(mapId)}
+          >
+            {renderNodes(nestedDataItems, 'data')}
+          </DropdownMenu>
+          {' '}نسبت به{' '}
+           <DropdownMenu
+            value={configuredMapItems.find(i => i.value === mapId)?.label || mapId}
             onSelect={(value: string) => {
               const event = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
               onMapChange(event);
@@ -133,16 +196,9 @@ const Controls: React.FC<ControlsProps> = ({
            gradientColors={[['var(--color-gray1)', 0.3], ['var(--color-gray1)', 0.01]]}
            shadow="var(--elevation-2)"
            hoverBackground={['var(--color-gray12)', 0.15]}
-         >
-           {mapIds.map(id => {
-             const displayName = getMapDisplayName(id);
-             return (
-               <li key={id} data-value={id}>
-                 {displayName}
-               </li>
-             );
-           })}
-         </DropdownMenu>
+           >
+            {renderNodes(nestedMapItems, 'map')}
+          </DropdownMenu>
 
       </h2>
     </div>

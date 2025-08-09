@@ -20,7 +20,6 @@ import {
 import { 
   geoJsonConfig, 
   getMapIds, 
-  getMapDisplayName, 
   getMapHoverTag, 
   getMapGeoJsonPath, 
   getMapCsvPath,
@@ -138,6 +137,17 @@ const GISDashboard: React.FC = () => {
         return;
       }
 
+      // If this is a flow data selection, dataset loading should be skipped
+      if (selectedDataset.startsWith('flowdata:')) {
+        setCurrentDatasetConfig(null);
+        setDatasetData(null);
+        setIsDatasetLoading(false);
+        setCurrentPointDataConfig(null);
+        setIsPointDataLoading(false);
+        setGeodata([]);
+        return;
+      }
+
       // Check if the selected dataset is compatible with the current map
       const datasetConfig = getDatasetConfig(selectedDataset);
       if (datasetConfig) {
@@ -146,7 +156,6 @@ const GISDashboard: React.FC = () => {
         
         if (datasetGeoJsonPath !== currentMapGeoJsonPath) {
           // Dataset is not compatible with current map, clear it
-          console.log(`Dataset ${selectedDataset} is not compatible with map ${mapId}`);
           setCurrentDatasetConfig(null);
           setDatasetData(null);
           setIsDatasetLoading(false);
@@ -359,14 +368,9 @@ const GISDashboard: React.FC = () => {
   };
 
   const handleRegionClick = (regionData: Record<string, any>, regionName: string) => {
-    console.log('=== REGION CLICK ===');
-    console.log('Region clicked:', regionName);
-    console.log('Selected dataset:', selectedDataset);
-    console.log('Available geodata:', geodata);
     
     // Don't show data card if no dataset is selected
     if (selectedDataset === 'nothing') {
-      console.log('No dataset selected, not showing data card');
       setSelectedRegionData(null);
       setSelectedPointData(null);
       return;
@@ -385,19 +389,16 @@ const GISDashboard: React.FC = () => {
     // Find the corresponding data in the geodata array
     const matchingData = geodata.find(item => {
       const normalizedItemName = normalizeRegionName(item.name);
-      console.log('Comparing:', item.name, '->', normalizedItemName, 'with:', normalizedName);
       return normalizedItemName === normalizedName;
     });
 
     if (matchingData) {
-      console.log('Found matching data:', matchingData);
       setSelectedPointData(null); // Clear point selection
       setSelectedRegionData({
         regionName: regionName,
         data: matchingData
       });
     } else {
-      console.log('No matching data found for:', normalizedName);
       setSelectedRegionData(null);
     }
   };
@@ -407,8 +408,6 @@ const GISDashboard: React.FC = () => {
   };
 
   const handlePointClick = (point: any) => {
-    console.log('=== POINT CLICK ===');
-    console.log('Point clicked:', point);
     
     if (currentPointDataConfig) {
       // Use new point data card generation
@@ -447,8 +446,6 @@ const GISDashboard: React.FC = () => {
   };
 
   const handleFlowClick = (flow: any) => {
-    console.log('=== FLOW CLICK ===');
-    console.log('Flow clicked:', flow);
     
     // Use the original CSV data directly for proper card generation
     const flowData = flow.originalData || {

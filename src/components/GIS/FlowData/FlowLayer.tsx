@@ -124,13 +124,7 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
       return curvePoints;
     });
     
-    console.log('Flow curve points:', curvePointsArray.map((points, index) => ({
-      flowIndex: index,
-      flowId: flows[index]?.id,
-      pointsCount: points.length,
-      firstPoint: points[0],
-      lastPoint: points[points.length - 1]
-    })));
+    
     
     return curvePointsArray;
   }, [flows]);
@@ -154,9 +148,7 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
       });
     });
     
-    console.log(`Created ${newParticles.length} particles for ${flows.length} flows`);
-    console.log('Particles:', newParticles);
-    console.log('Flows:', flows.map(f => ({ id: f.id, category: f.category })));
+    
     
     setParticles(newParticles);
   }, [flows, enableAnimation]);
@@ -212,17 +204,13 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
   const getDisplayName = useCallback((flow: FlowData): string => {
     // Use the category field which contains the raw value (e.g., "type1", "type2")
     const categoryValue = flow.category;
-    console.log('getDisplayName - flow:', flow);
-    console.log('getDisplayName - categoryValue:', categoryValue);
-    console.log('getDisplayName - categoryLabels:', categoryLabels);
+    
     
     if (categoryValue) {
       // Check if we have a category label mapping for this value
       if (categoryLabels[categoryValue]) {
-        console.log('getDisplayName - found label:', categoryLabels[categoryValue]);
         return categoryLabels[categoryValue];
       }
-      console.log('getDisplayName - no label found, using raw value');
       // Fallback to the raw value
       return String(categoryValue);
     }
@@ -332,24 +320,19 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
       handleFlowLeave();
     };
 
-    const handleMapClick = (e: any) => {
-      console.log('=== MAP CLICK ===');
-      console.log('Click point:', e.point);
+      const handleMapClick = (e: any) => {
       
       // Query for features at the click point (try both layers)
       const features = map.queryRenderedFeatures(e.point, { layers: ['flow-lines-clickable', 'flow-lines-base'] });
-      console.log('Features found:', features);
       
       if (features.length > 0 && onFlowClick) {
-        const feature = features[0];
-        console.log('Feature properties:', feature.properties);
+          const feature = features[0];
         
         // Try to get flowId from properties
         const flowId = feature.properties?.flowId;
         if (flowId) {
           const flow = flows.find(f => f.id === flowId);
-          if (flow) {
-            console.log('Flow found, calling onFlowClick:', flow);
+            if (flow) {
             onFlowClick(flow);
             return;
           }
@@ -370,7 +353,6 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
         });
         
         if (clickedFlow) {
-          console.log('Flow found by coordinates, calling onFlowClick:', clickedFlow);
           onFlowClick(clickedFlow);
         }
       }
@@ -529,8 +511,6 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
                   cursor: 'pointer'
                 }}
                 onClick={() => {
-                  console.log('=== MARKER CLICK ===');
-                  console.log('Flow clicked:', flow);
                   onFlowClick && onFlowClick(flow);
                 }}
                 onMouseEnter={(e) => handleMarkerHover(displayName, e)}
@@ -554,8 +534,6 @@ const FlowLayer: React.FC<FlowLayerProps> = ({
                   cursor: 'pointer'
                 }}
                 onClick={() => {
-                  console.log('=== MARKER CLICK ===');
-                  console.log('Flow clicked:', flow);
                   onFlowClick && onFlowClick(flow);
                 }}
                 onMouseEnter={(e) => handleMarkerHover(displayName, e)}

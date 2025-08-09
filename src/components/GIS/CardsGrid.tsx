@@ -70,12 +70,8 @@ const CardsGrid: React.FC<CardsGridProps> = ({ title, cards, onClose }) => {
                 tooltipContent={card.info || `Value: ${card.value}${card.unit ? ` ${card.unit}` : ''}`}
                 visibleItemsInitial={1}
                 gridRef={gridRef}
-                onExpandToggle={(expanded) => {
-                  console.log(`Card ${index} expanded:`, expanded);
-                }}
-                onPinToggle={(pinned) => {
-                  console.log(`Card ${index} pinned:`, pinned);
-                }}
+                onExpandToggle={() => {}}
+                onPinToggle={() => {}}
               >
                 <div className="card-value-wrapper">
                   <span 

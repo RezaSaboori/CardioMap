@@ -115,7 +115,7 @@ export const loadFlowData = async (config: FlowDataConfig): Promise<ProcessedFlo
           originalData: row as Record<string, any>, // Store original CSV data for card display
         } as FlowData;
         
-        console.log(`Created flow ${index}:`, { id, category, sizeValue: sizeNormal });
+        
         
         return flowData;
       })

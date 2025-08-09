@@ -89,7 +89,6 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
 
   const handlePointClick = (point: any) => {
     // Handle point click if needed
-    console.log('Point clicked:', point);
     if (onPointClick) {
       onPointClick(point);
     }
@@ -97,7 +96,6 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
 
   const handleFlowClick = (flow: any) => {
     // Handle flow click if needed
-    console.log('Flow clicked:', flow);
     if (onFlowClick) {
       onFlowClick(flow);
     }

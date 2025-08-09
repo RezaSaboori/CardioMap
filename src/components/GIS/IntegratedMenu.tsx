@@ -16,7 +16,6 @@ const IntegratedMenu: React.FC = () => {
 
   const handleItemClick = (index: number) => {
     setSelectedIndex(index);
-    console.log(`Menu item ${index} clicked`);
     // Add navigation logic here
   };
 

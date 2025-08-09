@@ -39,19 +39,16 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
     }
 
     // Load CSV data
-    console.log(`Loading CSV from path: ${config.csvPath}`);
     let csvData: Record<string, any>[];
     try {
       csvData = await loadCsvData(config.csvPath);
-      console.log(`Loaded CSV data for ${config.name}:`, csvData.length, 'rows');
       
       if (csvData.length === 0) {
         console.error('No CSV data loaded!');
         throw new Error(`No CSV data loaded from ${config.csvPath}`);
       }
       
-      console.log('CSV columns:', Object.keys(csvData[0] || {}));
-      console.log('First few rows:', csvData.slice(0, 3));
+      
       
       // Check if the expected column exists
       if (!csvData[0] || !csvData[0][config.csvJoinColumn]) {
@@ -139,24 +136,17 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
         .map((row: Record<string, any>) => parseFloat(row[config.dataColumn]))
         .filter((value: number) => !isNaN(value));
       
-      console.log(`Numeric data calculation for ${config.name}:`, {
-        dataColumn: config.dataColumn,
-        totalRows: csvData.length,
-        validValues: values.length,
-        sampleValues: values.slice(0, 5)
-      });
+      
       
       if (values.length > 0) {
         minValue = Math.min(...values);
         maxValue = Math.max(...values);
-        console.log(`Calculated min/max for ${config.name}:`, { minValue, maxValue });
       } else {
         console.warn(`No valid numeric values found for ${config.name} in column ${config.dataColumn}`);
       }
     } else if (config.type === 'categorical') {
       const uniqueCategories = [...new Set(csvData.map((row: Record<string, any>) => row[config.dataColumn]))];
       categories = uniqueCategories.filter((cat: any) => cat && cat !== '') as string[];
-      console.log(`Categorical data for ${config.name}:`, { categories });
     }
 
     return {

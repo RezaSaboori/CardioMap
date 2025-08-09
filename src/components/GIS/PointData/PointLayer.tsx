@@ -267,8 +267,6 @@ const PointLayer: React.FC<PointLayerProps> = ({
                                 style={{ cursor: 'pointer' }}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    // Handle cluster click if needed
-                                    console.log('Cluster clicked:', cluster);
                                 }}
                                 onMouseEnter={() => {
                                     if (typeof cluster.id !== 'number') return;

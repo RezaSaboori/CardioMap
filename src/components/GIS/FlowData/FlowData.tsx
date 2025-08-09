@@ -101,11 +101,7 @@ const FlowData: React.FC<FlowDataProps> = ({
     );
   }
 
-  console.log('FlowData component - processedData:', processedData);
-  console.log('FlowData component - flows:', processedData.data);
-  console.log('FlowData component - flows with IDs:', processedData.data.map(f => ({ id: f.id, category: f.category })));
-  console.log('FlowData component - categoryLabels:', categoryLabels);
-  console.log('FlowData component - config.categoriesColumn:', config.categoriesColumn);
+  
 
   return (
     <FlowLayer

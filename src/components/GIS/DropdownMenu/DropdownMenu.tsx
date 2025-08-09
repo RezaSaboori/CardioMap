@@ -78,9 +78,13 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           const children = listRef.current.children;
           for (let i = 0; i < children.length; i++) {
             const child = children[i] as HTMLElement;
+            // Measure only top-level items; ignore submenu widths
+            const submenu = child.querySelector(':scope > .dropdown-submenu') as HTMLElement | null;
+            if (submenu) submenu.style.display = 'none';
             child.style.whiteSpace = 'nowrap';
             const childWidth = child.scrollWidth;
             child.style.whiteSpace = 'normal';
+            if (submenu) submenu.style.display = '';
             if (childWidth > widestChildWidth) {
               widestChildWidth = childWidth;
             }
@@ -131,6 +135,61 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       setCurrentHeight(headerHeight + 2); // +2 for border
     }
   }, [isExpanded, fixedHeight, headerHeight, maxHeight]);
+
+  // Compute widths for all nested submenus so they size to their content
+  useEffect(() => {
+    if (!isExpanded || !listRef.current) return;
+
+    const submenus = Array.from(listRef.current.querySelectorAll<HTMLUListElement>('.dropdown-submenu'));
+
+    const measureSubmenu = (submenu: HTMLUListElement) => {
+      // Temporarily show submenu to measure
+      const prevDisplay = submenu.style.display;
+      const prevVisibility = submenu.style.visibility;
+      const prevPointerEvents = submenu.style.pointerEvents;
+      submenu.style.display = 'block';
+      submenu.style.visibility = 'hidden';
+      submenu.style.pointerEvents = 'none';
+
+      let widestChildWidth = 0;
+      const children = Array.from(submenu.children).filter((el) => el.tagName.toLowerCase() === 'li') as HTMLElement[];
+      for (const child of children) {
+        const nested = child.querySelector(':scope > .dropdown-submenu') as HTMLElement | null;
+        const nestedPrevDisplay = nested ? nested.style.display : '';
+        if (nested) nested.style.display = 'none';
+
+        const prevWs = child.style.whiteSpace;
+        child.style.whiteSpace = 'nowrap';
+        const childWidth = child.scrollWidth;
+        child.style.whiteSpace = prevWs;
+        if (nested) nested.style.display = nestedPrevDisplay;
+
+        if (childWidth > widestChildWidth) widestChildWidth = childWidth;
+      }
+
+      // Account for padding similar to main list items
+      const requiredWidth = Math.min(
+        typeof maxWidth === 'number' ? maxWidth : 320,
+        Math.max(
+          typeof minWidth === 'number' ? minWidth : 120,
+          widestChildWidth + 24
+        )
+      );
+      submenu.style.width = `${requiredWidth}px`;
+
+      // Restore previous styles
+      submenu.style.display = prevDisplay;
+      submenu.style.visibility = prevVisibility;
+      submenu.style.pointerEvents = prevPointerEvents;
+    };
+
+    const measureAll = () => submenus.forEach(measureSubmenu);
+    measureAll();
+
+    // Recompute on window resize
+    window.addEventListener('resize', measureAll);
+    return () => window.removeEventListener('resize', measureAll);
+  }, [isExpanded, minWidth, maxWidth]);
 
   useLayoutEffect(() => {
     if (!fixedWidth && !isExpanded) {
@@ -185,14 +244,18 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
   const handleListClick = (e: React.MouseEvent<HTMLUListElement>) => {
     const listItem = (e.target as HTMLElement).closest('li');
-    if (listItem) {
-      if (onSelect) {
-        // Use data-value if available, otherwise fall back to textContent
-        const value = listItem.getAttribute('data-value') || listItem.textContent || '';
-        onSelect(value);
-      }
-      setIsExpanded(false);
+    if (!listItem) return;
+    const valueAttr = listItem.getAttribute('data-value');
+    const isLeaf = !!valueAttr;
+    if (!isLeaf) {
+      // Clicking a non-leaf (has submenu) should not close or select
+      return;
     }
+    if (onSelect) {
+      const value = valueAttr || listItem.textContent || '';
+      onSelect(value);
+    }
+    setIsExpanded(false);
   };
 
   const generateGradient = (colors: Array<[string, number, string?]>) => {
@@ -234,9 +297,11 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
   const headerTitleStyle: React.CSSProperties = {
     textAlign: isRtl ? 'right' : 'left',
+    direction: isRtl ? 'rtl' : 'ltr',
     flex: '1 1 auto',
     paddingLeft: !isRtl ? `${titlePadding}px` : undefined,
     paddingRight: isRtl ? `${titlePadding}px` : undefined,
+    order: isRtl ? 2 : 1,
   };
   
   if (shouldUseEllipsis) {
@@ -281,6 +346,9 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   if (gradientBackground) {
     dropdownStyle.background = gradientBackground;
   }
+  // Ensure submenu inherits same colors via CSS by exposing variables (cast to any for CSS custom props)
+  (dropdownStyle as any)['--submenu-bg'] = (dropdownStyle.background as string) || background;
+  (dropdownStyle as any)['--submenu-shadow'] = shadow as string;
 
   if(isOnTop) {
     dropdownStyle[isRtl ? 'right' : 'left'] = 0;
@@ -294,6 +362,8 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     paddingLeft: `${headerPadding}px`,
     color: textColor,
     display: 'flex',
+    flexDirection: 'row',
+    direction: 'ltr', // Force flex main axis left-to-right so arrow can be forced to the left using order
     alignItems: 'center',
     justifyContent: 'space-between',
     position: 'relative',
@@ -310,11 +380,13 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     alignItems: 'center',
     justifyContent: 'center',
     margin: 'auto 0',
+    order: isRtl ? 1 : 2,
   };
 
   const listStyle: React.CSSProperties = {
     maxHeight: listMaxHeight,
     textAlign: isRtl ? 'right' : 'left',
+    direction: direction, // inherit explicit dir from prop
     color: textColor,
     '--final-border-radius': `${finalBorderRadius}px`,
   } as React.CSSProperties & { '--final-border-radius': string };
@@ -326,7 +398,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const dropdownClasses = `custom-dropdown-menu ${isExpanded ? 'expanded' : ''}`;
 
   return (
-    <div className="dropdown-menu-container" style={containerStyle} ref={containerRef}>
+    <div className="dropdown-menu-container" style={containerStyle} ref={containerRef} dir={direction}>
       <div className={dropdownClasses} style={dropdownStyle} ref={dropdownDivRef}>
         <div 
           className="dropdown-menu-header" 

@@ -97,7 +97,7 @@ const generateGradientFromConfig = (config: GeoDatasetConfig, datasetData: Datas
   const [color1, color2, color3] = config.colorGradients;
   const range = datasetData.maxValue - datasetData.minValue;
   
-  console.log('Generating gradient from config:', { color1, color2, color3, minValue: datasetData.minValue, maxValue: datasetData.maxValue });
+  
   
   return [
     { value: datasetData.minValue, color: color1 },

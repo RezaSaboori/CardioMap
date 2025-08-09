@@ -15,7 +15,8 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
     
     /* box-shadow is now controlled by a prop */
-    overflow: hidden; 
+    /* allow nested submenus to overflow horizontally */
+    overflow: visible; 
     
     /* height and border-radius are set via inline styles from props */
     transition: height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
@@ -71,11 +72,12 @@
     margin: 0;
     padding: 6px 6px;
     box-sizing: border-box;
-    /* max-height is set via inline styles */
-    overflow-y: auto;
+    /* allow nested submenus to overflow outside the list */
+    overflow: visible;
     opacity: 0;
     transition: opacity 0.2s ease-in-out 0.2s;
-    direction: ltr;
+    direction: inherit;
+    position: relative;
 }
         
 .custom-dropdown-menu.expanded .dropdown-menu-list {
@@ -98,7 +100,11 @@
 
 .dropdown-menu-list li {
     border-radius: 16px;
-    padding: 6px;
+    /* Reserve space symmetrically to align text baselines in RTL/LTR */
+    padding-block: 6px;
+    padding-inline-start: 12px; /* leading */
+    padding-inline-end: 28px;   /* trailing (chevron) */
+    white-space: nowrap; /* prevent wrapping of item labels */
     cursor: pointer;
     transition: background-color 0.2s ease;
     /* font-size is inherited from container, color is inherited from ul */
@@ -107,3 +113,132 @@
 .dropdown-menu-list li:hover {
     background-color: var(--hover-bg-color);
 } 
+
+/* Nested submenu styles */
+.dropdown-menu-list li.has-submenu {
+    position: relative;
+    /* padding already reserved globally to avoid indent jump */
+    overflow: visible;
+}
+
+/* professional submenu arrow, SVG like header, positioned on trailing side */
+.dropdown-menu-list li.has-submenu .submenu-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%) rotate(0deg);
+    right: 6px; /* LTR default */
+    width: 16px;
+    height: 16px;
+    border-radius: 0;
+    background-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.dropdown-menu-list li.has-submenu .submenu-arrow svg {
+    width: 100%;
+    height: 100%;
+    fill: var(--arrow-color);
+    transform: rotate(-90deg); /* point to the right for LTR */
+}
+
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list li.has-submenu .submenu-arrow {
+    right: auto;
+    left: 6px; /* put on the left in RTL */
+}
+
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list li.has-submenu .submenu-arrow svg {
+    transform: rotate(90deg); /* point to the left in RTL */
+}
+
+.dropdown-submenu {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+    position: absolute;
+    top: 0; /* align with parent item top to remove hover gap */
+    min-width: 160px;
+    max-height: 240px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-radius: 16px;
+    background: var(--submenu-bg, inherit); /* reuse parent gradient/background */
+    box-shadow: var(--submenu-shadow, inherit); /* reuse parent shadow */
+    color: inherit;
+    backdrop-filter: blur(15px) brightness(1.2) saturate(1.5);
+    -webkit-backdrop-filter: blur(15px) brightness(1.2) saturate(1.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    transform: translateX(4px);
+    z-index: 1000000000;
+    direction: inherit;
+}
+
+/* Position based on container direction attribute (leave visible gap) */
+.dropdown-menu-container[dir="rtl"] .dropdown-submenu { right: calc(100% + 12px); }
+.dropdown-menu-container[dir="ltr"] .dropdown-submenu { left: calc(100% + 12px); }
+
+.dropdown-menu-list li.has-submenu:hover > .dropdown-submenu {
+    display: block;
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateX(0);
+}
+
+/* Keep submenu open when the mouse is over it */
+.dropdown-submenu:hover {
+    display: block;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Hover bridge to avoid flicker when moving the mouse from parent to submenu
+   Width matches the gap + a small margin so the submenu doesn't overlap the parent. */
+.dropdown-menu-container[dir="ltr"] .dropdown-menu-list li.has-submenu::before,
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list li.has-submenu::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    bottom: -6px;
+    width: 16px; /* virtual active area */
+}
+
+.dropdown-menu-container[dir="ltr"] .dropdown-menu-list li.has-submenu::before {
+    right: -16px; /* bridge on the side of the submenu */
+}
+
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list li.has-submenu::before {
+    left: -16px; /* bridge on the side of the submenu */
+}
+
+
+/* Custom scrollbar for submenu: simple thumb, no buttons */
+.dropdown-submenu {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--color-gray6) transparent; /* Firefox */
+}
+
+.dropdown-submenu::-webkit-scrollbar {
+    width: 6px; /* Chrome/Safari/Edge */
+}
+
+.dropdown-submenu::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.dropdown-submenu::-webkit-scrollbar-thumb {
+    background-color: var(--color-gray6);
+    border-radius: 4px;
+}
+
+.dropdown-submenu::-webkit-scrollbar-button {
+    display: none;
+    width: 0;
+    height: 0;
+}
+
