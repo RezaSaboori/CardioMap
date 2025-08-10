@@ -161,6 +161,70 @@
     background-color: var(--hover-bg-color);
 } 
 
+/* Selected item styles - persistent background */
+.dropdown-menu-list li.selected,
+.dropdown-submenu-portal li.selected {
+    background-color: var(--active-bg-color);
+}
+
+/* Active item styles - for items that are selected by default or have open submenus */
+.dropdown-menu-list li.active,
+.dropdown-submenu-portal li.active {
+    background-color: var(--active-bg-color);
+}
+
+/* Submenu trigger that is currently open - persistent background */
+.dropdown-menu-list li.submenu-open,
+.dropdown-submenu-portal li.submenu-open {
+    background-color: var(--active-bg-color);
+}
+
+/* Ensure selected items maintain their background even when not hovered */
+.dropdown-menu-list li.selected:not(:hover),
+.dropdown-submenu-portal li.selected:not(:hover) {
+    background-color: var(--active-bg-color);
+}
+
+/* Ensure active items maintain their background even when not hovered */
+.dropdown-menu-list li.active:not(:hover),
+.dropdown-submenu-portal li.active:not(:hover) {
+    background-color: var(--active-bg-color);
+}
+
+/* Ensure submenu-open items maintain their background even when not hovered */
+.dropdown-menu-list li.submenu-open:not(:hover),
+.dropdown-submenu-portal li.submenu-open:not(:hover) {
+    background-color: var(--active-bg-color);
+}
+
+/* Combined active states - when an item has multiple active states */
+.dropdown-menu-list li.active.selected,
+.dropdown-submenu-portal li.active.selected {
+    background-color: var(--active-bg-color);
+}
+
+.dropdown-menu-list li.active.submenu-open,
+.dropdown-submenu-portal li.active.submenu-open {
+    background-color: var(--active-bg-color);
+}
+
+.dropdown-menu-list li.selected.submenu-open,
+.dropdown-submenu-portal li.selected.submenu-open {
+    background-color: var(--active-bg-color);
+}
+
+/* All three states combined */
+.dropdown-menu-list li.active.selected.submenu-open,
+.dropdown-submenu-portal li.active.selected.submenu-open {
+    background-color: var(--active-bg-color);
+}
+
+
+
+
+
+
+
 /* Nested submenu styles */
 .dropdown-menu-list li.has-submenu,
 .dropdown-submenu-portal li.has-submenu {

@@ -26,6 +26,7 @@ export interface DropdownMenuProps {
   gradientColors?: Array<[string, number, string?]>;
   shadow?: string;
   hoverBackground?: [string, number];
+  activeBackground?: [string, number];
   fixedWidth?: boolean;
   fixedHeight?: boolean;
 }
@@ -55,6 +56,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   gradientColors,
   shadow = '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
   hoverBackground = ['rgba(255,255,255,1)', 0.1],
+  activeBackground = ['rgba(255,255,255,1)', 0.2],
   fixedWidth = false,
   fixedHeight = false,
 }) => {
@@ -66,6 +68,8 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [submenuPositions, setSubmenuPositions] = useState<Map<string, SubmenuPosition>>(new Map());
   const [submenuHoverState, setSubmenuHoverState] = useState<Map<string, boolean>>(new Map());
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [activeItemIds, setActiveItemIds] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownDivRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -74,6 +78,93 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
   const isRtl = direction === 'rtl';
 
+  // Helper function to get the display label for the current value
+  const getDisplayLabel = useCallback((): string => {
+    if (!items) return value;
+    
+    const findItemByValue = (items: SubmenuItem[]): SubmenuItem | null => {
+      for (const item of items) {
+        if (item.value === value) {
+          return item;
+        }
+        if (item.children) {
+          const found = findItemByValue(item.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const foundItem = findItemByValue(items);
+    return foundItem ? foundItem.label : value;
+  }, [items, value]);
+
+  // Helper function to generate item ID consistently
+  const generateItemId = useCallback((item: SubmenuItem, index: number, parentId: string = ''): string => {
+    const itemKey = item.value || item.label;
+    return `${parentId}-${itemKey}-${index}`;
+  }, []);
+
+  // Helper function to find initial active items (only for items prop changes)
+  const findActiveItems = useCallback((items: SubmenuItem[], parentId: string = ''): Set<string> => {
+    console.log('🔍 findActiveItems called with:', { items, parentId, currentValue: value });
+    const activeIds = new Set<string>();
+    
+    items.forEach((item, index) => {
+      const itemId = generateItemId(item, index, parentId);
+      
+      console.log(`🔍 findActiveItems - checking item:`, {
+        label: item.label,
+        value: item.value,
+        itemId,
+        parentId,
+        currentValue: value,
+        matches: item.value === value
+      });
+      
+      // Only add items that are selected by default (when items prop changes)
+      if (item.value === value) {
+        console.log('🔍 findActiveItems - adding to activeIds:', itemId);
+        activeIds.add(itemId);
+      }
+      
+      // Recursively check children
+      if (item.children && item.children.length > 0) {
+        const childActiveIds = findActiveItems(item.children, itemId);
+        childActiveIds.forEach(id => activeIds.add(id));
+      }
+    });
+    
+    console.log('🔍 findActiveItems - returning activeIds:', Array.from(activeIds));
+    return activeIds;
+  }, [value, generateItemId]);
+
+  // Update active items only when items prop changes (not on every value/activeSubmenu change)
+  useEffect(() => {
+    console.log('🔍 useEffect - items changed, updating activeItemIds');
+    console.log('🔍 useEffect - current value:', value);
+    console.log('🔍 useEffect - current items:', items);
+    
+    if (items) {
+      const newActiveItems = findActiveItems(items);
+      console.log('🔍 useEffect - newActiveItems:', Array.from(newActiveItems));
+      setActiveItemIds(newActiveItems);
+    }
+  }, [items, findActiveItems]);
+
+  // Update active items when value prop changes
+  useEffect(() => {
+    console.log('🔍 useEffect - value changed, updating activeItemIds');
+    console.log('🔍 useEffect - new value:', value);
+    console.log('🔍 useEffect - current items:', items);
+    
+    if (items) {
+      const newActiveItems = findActiveItems(items);
+      console.log('🔍 useEffect - newActiveItems after value change:', Array.from(newActiveItems));
+      setActiveItemIds(newActiveItems);
+    }
+  }, [value, items, findActiveItems]);
+
   const getHeaderContentWidth = useCallback(() => {
     const tempSpan = document.createElement('span');
     tempSpan.style.visibility = 'hidden';
@@ -81,12 +172,12 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     tempSpan.style.fontSize = fontSize;
     tempSpan.style.fontWeight = '500';
     tempSpan.style.whiteSpace = 'nowrap';
-    tempSpan.textContent = value;
+    tempSpan.textContent = getDisplayLabel();
     document.body.appendChild(tempSpan);
     const textWidth = tempSpan.offsetWidth;
     document.body.removeChild(tempSpan);
     return textWidth;
-  }, [fontSize, value]);
+  }, [fontSize, getDisplayLabel]);
 
   const calculateSubmenuPosition = useCallback((triggerElement: HTMLElement, submenuId: string): SubmenuPosition => {
     const rect = triggerElement.getBoundingClientRect();
@@ -259,6 +350,13 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     setSubmenuPositions(prev => new Map(prev).set(submenuId, position));
     setActiveSubmenu(submenuId);
     setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
+    
+    // Immediately add to active items
+    setActiveItemIds(prev => {
+      const newActiveItems = new Set(prev);
+      newActiveItems.add(submenuId);
+      return newActiveItems;
+    });
   }, [calculateSubmenuPosition]);
 
   const handleSubmenuLeave = useCallback((submenuId: string) => {
@@ -269,6 +367,12 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       setActiveSubmenu(prev => {
         // Only close if we're still on the same submenu and no hover state is active
         if (prev === submenuId && !submenuHoverState.get(submenuId)) {
+          // Remove from active items when submenu closes
+          setActiveItemIds(prev => {
+            const newActiveItems = new Set(prev);
+            newActiveItems.delete(submenuId);
+            return newActiveItems;
+          });
           return null;
         }
         return prev;
@@ -287,6 +391,13 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     
     setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
     setActiveSubmenu(submenuId);
+    
+    // Ensure submenu stays in active items
+    setActiveItemIds(prev => {
+      const newActiveItems = new Set(prev);
+      newActiveItems.add(submenuId);
+      return newActiveItems;
+    });
   }, []);
 
   const handleSubmenuMouseLeave = useCallback((submenuId: string) => {
@@ -296,6 +407,12 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     const timer = setTimeout(() => {
       setActiveSubmenu(prev => {
         if (prev === submenuId && !submenuHoverState.get(submenuId)) {
+          // Remove from active items when submenu closes
+          setActiveItemIds(prev => {
+            const newActiveItems = new Set(prev);
+            newActiveItems.delete(submenuId);
+            return newActiveItems;
+          });
           return null;
         }
         return prev;
@@ -393,6 +510,8 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
         if (!isInsideSubmenu) {
           setIsExpanded(false);
           setActiveSubmenu(null);
+          // Clear active items when dropdown closes
+          setActiveItemIds(new Set());
         }
       }
     };
@@ -412,8 +531,51 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       // Clear all timers
       submenuTimers.current.forEach(clearTimeout);
       submenuTimers.current.clear();
+      // Clear active items
+      setActiveItemIds(new Set());
     };
   }, []);
+
+  // Track selected item when value prop changes
+  useEffect(() => {
+    console.log('🔍 DropdownMenu useEffect - value prop changed:', value);
+    console.log('🔍 DropdownMenu useEffect - items:', items);
+    
+    if (items) {
+      // Find the item that matches the current value
+      const findSelectedItem = (items: SubmenuItem[], parentId: string = ''): string | null => {
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
+          // Use consistent ID generation
+          const itemId = generateItemId(item, i, parentId);
+          
+          console.log(`🔍 findSelectedItem - checking item:`, {
+            label: item.label,
+            value: item.value,
+            itemId,
+            parentId,
+            currentValue: value,
+            matches: item.value === value
+          });
+          
+          if (item.value === value) {
+            console.log('🔍 findSelectedItem - found match! itemId:', itemId);
+            return itemId;
+          }
+          
+          if (item.children) {
+            const found = findSelectedItem(item.children, itemId);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      
+      const foundId = findSelectedItem(items);
+      console.log('🔍 DropdownMenu useEffect - foundId:', foundId);
+      setSelectedItemId(foundId);
+    }
+  }, [value, items, generateItemId]);
 
   // Close submenus when dropdown closes
   useEffect(() => {
@@ -471,12 +633,17 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     const listItem = (e.target as HTMLElement).closest('li');
     if (!listItem) return;
     
+    console.log('🔍 handleListClick - clicked listItem:', listItem);
+    
     // Check if it's a submenu item with children
     if (listItem.classList.contains('has-submenu')) {
+      console.log('🔍 handleListClick - has-submenu item clicked');
       // Find the submenu ID for this trigger item
       const itemIndex = Array.from(listItem.parentNode?.children || []).indexOf(listItem);
-      const itemKey = `${listItem.textContent?.trim()}-${itemIndex}`;
-      const submenuId = `-${itemKey}`;
+      const itemKey = listItem.textContent?.trim() || '';
+      const submenuId = `-${itemKey}-${itemIndex}`;
+      
+      console.log('🔍 handleListClick - submenuId:', submenuId);
       
       // Toggle the submenu
       handleSubmenuTriggerClick(submenuId);
@@ -486,11 +653,59 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     const valueAttr = listItem.getAttribute('data-value');
     const isLeaf = !!valueAttr;
     if (!isLeaf) {
+      console.log('🔍 handleListClick - not a leaf item, returning');
       return;
     }
+    
+    console.log('🔍 handleListClick - leaf item clicked, valueAttr:', valueAttr);
+    
     if (onSelect) {
       const value = valueAttr || listItem.textContent || '';
+      console.log('🔍 handleListClick - calling onSelect with value:', value);
       onSelect(value);
+      
+      // Find the correct item ID using the same logic as the useEffect
+      if (items) {
+        const findClickedItemId = (items: SubmenuItem[], parentId: string = ''): string | null => {
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const itemId = generateItemId(item, i, parentId);
+            
+            console.log(`🔍 findClickedItemId - checking item:`, {
+              label: item.label,
+              value: item.value,
+              itemId,
+              parentId,
+              clickedValue: value,
+              matches: item.value === value
+            });
+            
+            if (item.value === value) {
+              console.log('🔍 findClickedItemId - found match! itemId:', itemId);
+              return itemId;
+            }
+            
+            if (item.children) {
+              const found = findClickedItemId(item.children, itemId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        const clickedItemId = findClickedItemId(items);
+        console.log('🔍 handleListClick - clickedItemId:', clickedItemId);
+        
+        if (clickedItemId) {
+          setSelectedItemId(clickedItemId);
+          
+          // Immediately update active items to show the new selection
+          const newActiveItems = new Set<string>();
+          newActiveItems.add(clickedItemId);
+          console.log('🔍 handleListClick - setting newActiveItems:', Array.from(newActiveItems));
+          setActiveItemIds(newActiveItems);
+        }
+      }
     }
     setIsExpanded(false);
     setActiveSubmenu(null);
@@ -501,18 +716,68 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     const listItem = (e.target as HTMLElement).closest('li');
     if (!listItem) return;
     
+    console.log('🔍 handleSubmenuClick - clicked listItem:', listItem);
+    
     // Check if it's a submenu item with children
     if (listItem.classList.contains('has-submenu')) {
+      console.log('🔍 handleSubmenuClick - has-submenu item clicked, returning');
       return; // Don't close for submenu triggers
     }
     
     const valueAttr = listItem.getAttribute('data-value');
+    console.log('🔍 handleSubmenuClick - valueAttr:', valueAttr);
+    
     if (valueAttr && onSelect) {
+      console.log('🔍 handleSubmenuClick - calling onSelect with value:', valueAttr);
       onSelect(valueAttr);
+      
+      // Find the correct item ID using the same logic as the useEffect
+      if (items) {
+        const findClickedSubmenuItemId = (items: SubmenuItem[], parentId: string = ''): string | null => {
+          for (let i = 0; i < items.length; i++) {
+            const item = items[i];
+            const itemId = generateItemId(item, i, parentId);
+            
+            console.log(`🔍 findClickedSubmenuItemId - checking item:`, {
+              label: item.label,
+              value: item.value,
+              itemId,
+              parentId,
+              clickedValue: valueAttr,
+              matches: item.value === valueAttr
+            });
+            
+            if (item.value === valueAttr) {
+              console.log('🔍 findClickedSubmenuItemId - found match! itemId:', itemId);
+              return itemId;
+            }
+            
+            if (item.children) {
+              const found = findClickedSubmenuItemId(item.children, itemId);
+              if (found) return found;
+            }
+          }
+          return null;
+        };
+        
+        const clickedItemId = findClickedSubmenuItemId(items);
+        console.log('🔍 handleSubmenuClick - clickedItemId:', clickedItemId);
+        
+        if (clickedItemId) {
+          setSelectedItemId(clickedItemId);
+          
+          // Immediately update active items to show the new selection
+          const newActiveItems = new Set<string>();
+          newActiveItems.add(clickedItemId);
+          console.log('🔍 handleSubmenuClick - setting newActiveItems:', Array.from(newActiveItems));
+          setActiveItemIds(newActiveItems);
+        }
+      }
+      
       setIsExpanded(false);
       setActiveSubmenu(null);
     }
-  }, [onSelect]);
+  }, [onSelect, items, generateItemId]);
 
   // Handle clicks on submenu trigger items (toggle behavior)
   const handleSubmenuTriggerClick = useCallback((submenuId: string) => {
@@ -525,10 +790,24 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
         clearTimeout(submenuTimers.current.get(submenuId)!);
         submenuTimers.current.delete(submenuId);
       }
+      
+                            // Remove from active items when closing submenu
+                      setActiveItemIds(prev => {
+                        const newActiveItems = new Set(prev);
+                        newActiveItems.delete(submenuId);
+                        return newActiveItems;
+                      });
     } else {
       // If submenu is closed, open it
       setActiveSubmenu(submenuId);
       setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
+      
+                            // Add to active items when opening submenu
+                      setActiveItemIds(prev => {
+                        const newActiveItems = new Set(prev);
+                        newActiveItems.add(submenuId);
+                        return newActiveItems;
+                      });
     }
   }, [activeSubmenu]);
 
@@ -559,14 +838,28 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const renderSubmenuItems = (items: SubmenuItem[], parentId: string = ''): ReactNode => {
     return items.map((item, idx) => {
       const key = `${item.label}-${idx}`;
-      const submenuId = `${parentId}-${key}`;
+      const submenuId = generateItemId(item, idx, parentId);
       
       if (item.children && item.children.length > 0) {
-        const isActive = activeSubmenu === submenuId;
+        const isActive = activeItemIds.has(submenuId);
+        const isSelected = selectedItemId === submenuId;
+        const isSubmenuOpen = activeSubmenu === submenuId;
+        
+        console.log(`🔍 renderSubmenuItems (parent) - item: ${item.label}`, {
+          submenuId,
+          isActive,
+          isSelected,
+          isSubmenuOpen,
+          activeItemIds: Array.from(activeItemIds),
+          selectedItemId
+        });
+        
+        const className = `has-submenu ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isSubmenuOpen ? 'submenu-open' : ''}`;
+        
         return (
           <li 
             key={key} 
-            className={`has-submenu ${isActive ? 'active' : ''}`}
+            className={className}
             tabIndex={-1}
             onMouseEnter={(e) => handleSubmenuEnter(submenuId, e.currentTarget)}
             onMouseLeave={() => handleSubmenuLeave(submenuId)}
@@ -610,10 +903,12 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
                   overflowY: 'auto',
                   overflowX: 'hidden',
                   '--arrow-color': textColor,
-                  '--hover-bg-color': hoverColor,
+                  '--hover-bg-color': effectiveHoverColor,
+                  '--active-bg-color': effectiveActiveColor,
                 } as React.CSSProperties & { 
                   '--arrow-color': string; 
-                  '--hover-bg-color': string | null;
+                  '--hover-bg-color': string;
+                  '--active-bg-color': string;
                 }}
                 onMouseEnter={() => handleSubmenuMouseEnter(submenuId)}
                 onMouseLeave={() => handleSubmenuMouseLeave(submenuId)}
@@ -627,8 +922,21 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
         );
       }
       
+      const isSelected = selectedItemId === submenuId;
+      const isActive = activeItemIds.has(submenuId);
+      
+      console.log(`🔍 renderSubmenuItems (leaf) - item: ${item.label}`, {
+        submenuId,
+        isSelected,
+        isActive,
+        selectedItemId,
+        activeItemIds: Array.from(activeItemIds)
+      });
+      
+      const className = `${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''}`;
+      
       return (
-        <li key={key} data-value={item.value || item.label}>
+        <li key={key} data-value={item.value || item.label} className={className}>
           <span className="item-label">{item.label}</span>
         </li>
       );
@@ -680,7 +988,12 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   }
 
   const hoverColor = generateMixedColor(hoverBackground as [string, number]);
+  const activeColor = generateMixedColor(activeBackground as [string, number]);
   const gradientBackground = generateGradient(gradientColors || []);
+  
+  // Ensure hover color has a fallback value
+  const effectiveHoverColor = hoverColor || 'rgba(255, 255, 255, 0.1)';
+  const effectiveActiveColor = activeColor || 'rgba(255, 255, 255, 0.2)';
 
   // Main dropdown styles
   const dropdownStyle: React.CSSProperties = {
@@ -699,10 +1012,10 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     fontSize: fontSize,
     fontFamily: 'inherit',
     '--arrow-color': textColor,
-    '--hover-bg-color': hoverColor,
+    '--hover-bg-color': effectiveHoverColor,
   } as React.CSSProperties & { 
     '--arrow-color': string; 
-    '--hover-bg-color': string | null;
+    '--hover-bg-color': string;
   };
   
   if(isOnTop) {
@@ -729,7 +1042,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const arrowStyle: React.CSSProperties = {
     width: `${arrowSize}px`,
     height: `${arrowSize}px`,
-    backgroundColor: hoverColor || undefined,
+    backgroundColor: effectiveHoverColor,
     flexShrink: 0,
     display: 'flex',
     alignItems: 'center',
@@ -744,7 +1057,13 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     direction: direction,
     color: textColor,
     '--final-border-radius': `${finalBorderRadius}px`,
-  } as React.CSSProperties & { '--final-border-radius': string };
+    '--hover-bg-color': effectiveHoverColor,
+    '--active-bg-color': effectiveActiveColor,
+  } as React.CSSProperties & { 
+    '--final-border-radius': string;
+    '--hover-bg-color': string;
+    '--active-bg-color': string;
+  };
 
   if (fixedWidth) {
     listStyle.wordBreak = 'break-word';
@@ -760,7 +1079,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           onClick={toggleDropdown} 
           style={headerStyle}
         >
-          <span className="dropdown-menu-header-title" style={headerTitleStyle}>{value}</span>
+          <span className="dropdown-menu-header-title" style={headerTitleStyle}>{getDisplayLabel()}</span>
           <div className="dropdown-menu-arrow" style={arrowStyle}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
               <g transform="translate(0 -32)">

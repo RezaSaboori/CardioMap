@@ -71,8 +71,17 @@ const Controls: React.FC<ControlsProps> = ({
 
   // Convert ControlNode to SubmenuItem format
   const convertToSubmenuItems = (nodes: ControlNode[], type: 'data' | 'map'): SubmenuItem[] => {
+    console.log('🔍 convertToSubmenuItems called with:', { nodes, type });
+    
     return nodes
       .filter(node => {
+        console.log('🔍 convertToSubmenuItems - filtering node:', {
+          label: node.label,
+          value: node.value,
+          hasChildren: !!node.children,
+          type
+        });
+        
         if (type === 'map') return true;
         if (node.children && node.children.length > 0) {
           // For parent items, include only if they have at least one valid child
@@ -80,13 +89,26 @@ const Controls: React.FC<ControlsProps> = ({
             if (child.children) return true;
             return isAllowedLeaf(child.value);
           });
+          console.log('🔍 convertToSubmenuItems - parent node validChildren count:', validChildren.length);
           return validChildren.length > 0;
         }
-        return isAllowedLeaf(node.value);
+        const isAllowed = isAllowedLeaf(node.value);
+        console.log('🔍 convertToSubmenuItems - leaf node isAllowed:', isAllowed);
+        return isAllowed;
       })
       .map(node => {
+        console.log('🔍 convertToSubmenuItems - mapping node:', {
+          label: node.label,
+          value: node.value,
+          type
+        });
+        
         if (type === 'data' && node.value) {
           const resolvedValue = resolveDataControlValue(node.value);
+          console.log('🔍 convertToSubmenuItems - resolved value:', {
+            original: node.value,
+            resolved: resolvedValue
+          });
           return {
             label: node.label,
             value: resolvedValue,
@@ -124,8 +146,35 @@ const Controls: React.FC<ControlsProps> = ({
   // Get the current combined value
   const getCombinedValue = () => {
     const currentValue = selectedDataset;
-    const match = resolvedDataItems.find(i => i.value === currentValue);
-    if (match) return match.label;
+    console.log('🔍 getCombinedValue - currentValue:', currentValue);
+    
+    // Use the same data source as the items prop to ensure consistency
+    const convertedItems = convertToSubmenuItems(nestedDataItems, 'data');
+    console.log('🔍 getCombinedValue - convertedItems:', convertedItems);
+    
+    // Find the item that matches the current selectedDataset
+    const findMatchingItem = (items: SubmenuItem[]): SubmenuItem | null => {
+      for (const item of items) {
+        if (item.value === currentValue) {
+          return item;
+        }
+        if (item.children) {
+          const found = findMatchingItem(item.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const match = findMatchingItem(convertedItems);
+    console.log('🔍 getCombinedValue - match:', match);
+    
+    if (match && match.value) {
+      console.log('🔍 getCombinedValue - returning value:', match.value);
+      return match.value; // Return the actual value, not the label
+    }
+    
+    console.log('🔍 getCombinedValue - no match found, returning default');
     return 'انتخاب کنید';
   };
 
@@ -149,6 +198,7 @@ const Controls: React.FC<ControlsProps> = ({
           <DropdownMenu
            value={getCombinedValue()}
                        onSelect={(value: string) => {
+              console.log('🔍 Data DropdownMenu onSelect - value:', value);
               const event = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
               handleCombinedDataChange(event);
             }}
@@ -161,12 +211,14 @@ const Controls: React.FC<ControlsProps> = ({
            textColor="var(--color-gray12)"
            gradientColors={[['var(--color-gray1)', 0.3], ['var(--color-gray1)', 0.01]]}
            shadow="var(--elevation-2)"
-           hoverBackground={['var(--color-gray12)', 0.15]}
+           hoverBackground={['var(--color-gray12)', 0.04]}
+           activeBackground={['var(--color-gray12)', 0.15]}
           />
           {' '}نسبت به{' '}
            <DropdownMenu
-            value={configuredMapItems.find(i => i.value === mapId)?.label || mapId}
+            value={configuredMapItems.find(i => i.value === mapId)?.value || mapId}
             onSelect={(value: string) => {
+              console.log('🔍 Map DropdownMenu onSelect - value:', value);
               const event = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
               onMapChange(event);
             }}
@@ -179,7 +231,8 @@ const Controls: React.FC<ControlsProps> = ({
            textColor="var(--color-gray12)"
            gradientColors={[['var(--color-gray1)', 0.3], ['var(--color-gray1)', 0.01]]}
            shadow="var(--elevation-2)"
-           hoverBackground={['var(--color-gray12)', 0.15]}
+           hoverBackground={['var(--color-gray12)', 0.04]}
+           activeBackground={['var(--color-gray12)', 0.15]}
            />
 
       </h2>

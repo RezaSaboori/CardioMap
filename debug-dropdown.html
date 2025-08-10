@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DropdownMenu Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .debug-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .instructions {
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>DropdownMenu Debug Test</h1>
+        
+        <div class="instructions">
+            <h3>🔍 Testing Instructions:</h3>
+            <ol>
+                <li><strong>Open the browser console</strong> (F12 → Console tab)</li>
+                <li><strong>Click on the dropdown</strong> to open it</li>
+                <li><strong>Hover over items</strong> to see hover states</li>
+                <li><strong>Click on items</strong> to see selection and active states</li>
+                <li><strong>Hover over submenu items</strong> (with > arrow) to open submenus</li>
+                <li><strong>Watch the console</strong> for debugging information</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 1: Basic Dropdown</h2>
+            <p>This dropdown has a default selected value and should show active state immediately.</p>
+            <div id="dropdown1"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>Test 2: Dropdown with Submenus</h2>
+            <p>This dropdown has nested submenus to test active states in complex structures.</p>
+            <div id="dropdown2"></div>
+        </div>
+
+        <div class="debug-info">
+            <h3>🔍 Console Debug Information:</h3>
+            <p>Look for these debug messages in the console:</p>
+            <ul>
+                <li><strong>🎨 Main render:</strong> Shows the main component state</li>
+                <li><strong>🎨 Colors:</strong> Shows hover color values</li>
+                <li><strong>🎨 renderSubmenuItems:</strong> Shows submenu rendering state</li>
+                <li><strong>🖱️ handleListClick:</strong> Shows click handling</li>
+                <li><strong>🖱️ handleSubmenuClick:</strong> Shows submenu click handling</li>
+                <li><strong>🔍 useEffect:</strong> Shows when active items are updated</li>
+            </ul>
+        </div>
+
+        <div class="debug-info">
+            <h3>🐛 Expected Behavior:</h3>
+            <ul>
+                <li><strong>Default Selection:</strong> Items with matching <code>value</code> should show active background</li>
+                <li><strong>Hover:</strong> Items should show hover background when mouse is over them</li>
+                <li><strong>Active:</strong> Selected items and open submenus should show active background</li>
+                <li><strong>Consistent:</strong> Active states should appear immediately on first click</li>
+            </ul>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import the component (you'll need to adjust the path based on your build setup)
+        import { DropdownMenu } from './dist/assets/index-DIRr3CVx.js';
+        
+        // Test data for dropdown 1
+        const items1 = [
+            { label: "Option 1", value: "opt1" },
+            { label: "Option 2", value: "opt2" },
+            { label: "Option 3", value: "opt3" }
+        ];
+
+        // Test data for dropdown 2 (with submenus)
+        const items2 = [
+            { label: "None", value: "none" },
+            { label: "Patients Path", value: "patients" },
+            { 
+                label: "Provincial Status", 
+                value: "provincial",
+                children: [
+                    { label: "Sub Option 1", value: "sub1" },
+                    { label: "Sub Option 2", value: "sub2" }
+                ]
+            },
+            { label: "Research Centers", value: "research" }
+        ];
+
+        // Create dropdown 1
+        const dropdown1 = new DropdownMenu({
+            target: document.getElementById('dropdown1'),
+            props: {
+                items: items1,
+                value: "opt1", // This should show as active by default
+                onSelect: (value) => {
+                    console.log('Dropdown 1 selected:', value);
+                },
+                direction: 'ltr',
+                fontSize: '14px',
+                headerHeight: 48,
+                maxHeight: 200
+            }
+        });
+
+        // Create dropdown 2
+        const dropdown2 = new DropdownMenu({
+            target: document.getElementById('dropdown2'),
+            props: {
+                items: items2,
+                value: "none", // This should show as active by default
+                onSelect: (value) => {
+                    console.log('Dropdown 2 selected:', value);
+                },
+                direction: 'ltr',
+                fontSize: '14px',
+                headerHeight: 48,
+                maxHeight: 200
+            }
+        });
+
+        console.log('🚀 DropdownMenu components created successfully!');
+        console.log('📱 Open the dropdowns and check the console for debugging information.');
+    </script>
+</body>
+</html>
