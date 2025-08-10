@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback, useLayoutEffect, ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import './DropdownMenu.css';
 
+export interface SubmenuItem {
+  label: string;
+  value?: string;
+  children?: SubmenuItem[];
+}
+
 export interface DropdownMenuProps {
-  children: ReactNode;
+  children?: ReactNode;
+  items?: SubmenuItem[];
   value: string;
   onSelect: (value: string) => void;
   fontSize?: string;
@@ -22,8 +30,16 @@ export interface DropdownMenuProps {
   fixedHeight?: boolean;
 }
 
+interface SubmenuPosition {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 const DropdownMenu: React.FC<DropdownMenuProps> = ({
   children,
+  items,
   value,
   onSelect,
   fontSize = '14px',
@@ -45,11 +61,16 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOnTop, setIsOnTop] = useState(false);
   const [currentWidth, setCurrentWidth] = useState(minWidth);
-  const [currentHeight, setCurrentHeight] = useState(headerHeight);
+  const [currentHeight, setCurrentHeight] = useState(headerHeight + 2);
   const [shouldUseEllipsis, setShouldUseEllipsis] = useState(false);
+  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
+  const [submenuPositions, setSubmenuPositions] = useState<Map<string, SubmenuPosition>>(new Map());
+  const [submenuHoverState, setSubmenuHoverState] = useState<Map<string, boolean>>(new Map());
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownDivRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const submenuRefs = useRef<Map<string, HTMLUListElement>>(new Map());
+  const submenuTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const isRtl = direction === 'rtl';
 
@@ -67,9 +88,227 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     return textWidth;
   }, [fontSize, value]);
 
+  const calculateSubmenuPosition = useCallback((triggerElement: HTMLElement, submenuId: string): SubmenuPosition => {
+    const rect = triggerElement.getBoundingClientRect();
+    const gap = 16; // Gap between trigger and submenu
+    
+            // Calculate dynamic submenu width using the same logic as main dropdown
+        let submenuWidth = 160; // Default minimum width
+        let submenuHeight = maxHeight; // Default height, will be adjusted based on content
+    
+    // Try to find the submenu content to calculate width and height
+    const submenuItems = findSubmenuItems(submenuId);
+    if (submenuItems && submenuItems.length > 0) {
+      // Use the same width calculation logic as main dropdown
+      let widestChildWidth = 0;
+      
+      // Create a temporary container to measure actual text widths
+      const tempContainer = document.createElement('div');
+      tempContainer.style.visibility = 'hidden';
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.fontSize = fontSize;
+      tempContainer.style.fontFamily = 'inherit';
+      tempContainer.style.fontWeight = '500'; // Same as main dropdown
+      tempContainer.style.whiteSpace = 'nowrap';
+      tempContainer.style.padding = '6px 12px'; // Same padding as submenu items
+      document.body.appendChild(tempContainer);
+      
+      // Measure each submenu item's actual width
+      submenuItems.forEach(item => {
+        tempContainer.textContent = item.label;
+        const itemWidth = tempContainer.scrollWidth;
+        if (itemWidth > widestChildWidth) {
+          widestChildWidth = itemWidth;
+        }
+      });
+      
+      // Clean up temporary container
+      document.body.removeChild(tempContainer);
+      
+      // Apply the same padding logic as main dropdown (60px)
+      const requiredWidth = widestChildWidth + 60;
+      
+      // Apply the same constraints as main dropdown using component props
+      const validMinWidth = Math.max(160, minWidth); // Use component minWidth or fallback to 160
+      const validMaxWidth = Math.min(400, maxWidth); // Use component maxWidth or fallback to 400
+      
+      submenuWidth = Math.max(validMinWidth, Math.min(requiredWidth, validMaxWidth));
+      
+                // Calculate height based on actual content (same logic as main dropdown)
+        // Create a temporary container to measure actual content height
+        const tempHeightContainer = document.createElement('ul');
+        tempHeightContainer.style.visibility = 'hidden';
+        tempHeightContainer.style.position = 'absolute';
+        tempHeightContainer.style.top = '-9999px';
+        tempHeightContainer.style.left = '-9999px';
+        tempHeightContainer.style.width = `${submenuWidth}px`;
+        tempHeightContainer.style.fontSize = fontSize;
+        tempHeightContainer.style.fontFamily = 'inherit';
+        tempHeightContainer.style.padding = '6px 6px';
+        tempHeightContainer.style.margin = '0';
+        tempHeightContainer.style.listStyle = 'none';
+        tempHeightContainer.style.borderRadius = '16px';
+        tempHeightContainer.style.boxSizing = 'border-box';
+        
+        // Add all submenu items to measure their actual height
+        submenuItems.forEach(item => {
+          const li = document.createElement('li');
+          li.style.padding = '6px 12px';
+          li.style.margin = '0';
+          li.style.borderRadius = '16px';
+          li.style.boxSizing = 'border-box';
+          li.style.whiteSpace = 'nowrap';
+          li.style.overflow = 'hidden';
+          li.style.textOverflow = 'ellipsis';
+          li.textContent = item.label;
+          tempHeightContainer.appendChild(li);
+        });
+        
+        document.body.appendChild(tempHeightContainer);
+        
+        // Get the actual scroll height (same as main dropdown logic)
+        const actualContentHeight = tempHeightContainer.scrollHeight;
+        
+        // Clean up temporary container
+        document.body.removeChild(tempHeightContainer);
+        
+        // Use the same height calculation logic as main dropdown
+        const totalHeight = actualContentHeight + 2; // Add 2px like main dropdown
+        submenuHeight = Math.min(totalHeight, maxHeight);
+    }
+    
+    let x: number;
+    let y: number;
+    
+    if (isRtl) {
+      // For RTL, position submenu to the left of the trigger
+      x = rect.left - gap - submenuWidth;
+      // Ensure submenu doesn't go off the left edge of the screen
+      if (x < 0) {
+        x = rect.right + gap;
+      }
+    } else {
+      // For LTR, position submenu to the right of the trigger
+      x = rect.right + gap;
+      // Ensure submenu doesn't go off the right edge of the screen
+      if (x + submenuWidth > window.innerWidth) {
+        x = rect.left - gap - submenuWidth;
+        // If still off-screen, position it to the left edge
+        if (x < 0) {
+          x = 0;
+        }
+      }
+    }
+    
+    // Ensure submenu doesn't go off the left edge
+    if (x < 0) {
+      x = 0;
+    }
+    
+    y = rect.top;
+    // Ensure submenu doesn't go off the bottom edge of the screen
+    if (y + submenuHeight > window.innerHeight) {
+      y = Math.max(0, window.innerHeight - submenuHeight);
+    }
+    // Ensure submenu doesn't go off the top edge of the screen
+    if (y < 0) {
+      y = 0;
+    }
+    
+    return { x, y, width: submenuWidth, height: submenuHeight };
+  }, [isRtl, fontSize, minWidth, maxWidth, maxHeight]);
+
+  // Helper function to find submenu items for width calculation
+  const findSubmenuItems = useCallback((submenuId: string): SubmenuItem[] | null => {
+    if (!items) return null;
+    
+    // Parse the submenu ID to find the path
+    const pathParts = submenuId.split('-').filter(part => part.length > 0);
+    if (pathParts.length === 0) return null;
+    
+    let currentItems = items;
+    let currentIndex = 0;
+    
+    // Navigate through the nested structure
+    for (let i = 0; i < pathParts.length - 1; i += 2) {
+      const itemIndex = parseInt(pathParts[i + 1]);
+      if (isNaN(itemIndex) || itemIndex < 0 || itemIndex >= currentItems.length) {
+        return null;
+      }
+      
+      const currentItem = currentItems[itemIndex];
+      if (!currentItem.children) {
+        return null;
+      }
+      
+      currentItems = currentItem.children;
+      currentIndex = itemIndex;
+    }
+    
+    return currentItems;
+  }, [items, maxHeight]);
+
+  const handleSubmenuEnter = useCallback((submenuId: string, triggerElement: HTMLElement) => {
+    // Clear any existing timer for this submenu
+    if (submenuTimers.current.has(submenuId)) {
+      clearTimeout(submenuTimers.current.get(submenuId)!);
+      submenuTimers.current.delete(submenuId);
+    }
+    
+    const position = calculateSubmenuPosition(triggerElement, submenuId);
+    setSubmenuPositions(prev => new Map(prev).set(submenuId, position));
+    setActiveSubmenu(submenuId);
+    setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
+  }, [calculateSubmenuPosition]);
+
+  const handleSubmenuLeave = useCallback((submenuId: string) => {
+    setSubmenuHoverState(prev => new Map(prev).set(submenuId, false));
+    
+    // Set a longer delay to prevent submenu from closing instantly
+    const timer = setTimeout(() => {
+      setActiveSubmenu(prev => {
+        // Only close if we're still on the same submenu and no hover state is active
+        if (prev === submenuId && !submenuHoverState.get(submenuId)) {
+          return null;
+        }
+        return prev;
+      });
+    }, 300); // Increased delay to 300ms for better user experience
+    
+    submenuTimers.current.set(submenuId, timer);
+  }, [submenuHoverState]);
+
+  const handleSubmenuMouseEnter = useCallback((submenuId: string) => {
+    // Clear any existing timer for this submenu
+    if (submenuTimers.current.has(submenuId)) {
+      clearTimeout(submenuTimers.current.get(submenuId)!);
+      submenuTimers.current.delete(submenuId);
+    }
+    
+    setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
+    setActiveSubmenu(submenuId);
+  }, []);
+
+  const handleSubmenuMouseLeave = useCallback((submenuId: string) => {
+    setSubmenuHoverState(prev => new Map(prev).set(submenuId, false));
+    
+    // Set a longer delay when leaving the submenu itself
+    const timer = setTimeout(() => {
+      setActiveSubmenu(prev => {
+        if (prev === submenuId && !submenuHoverState.get(submenuId)) {
+          return null;
+        }
+        return prev;
+      });
+    }, 200);
+    
+    submenuTimers.current.set(submenuId, timer);
+  }, [submenuHoverState]);
+
   const toggleDropdown = () => {
     if (isExpanded) {
       setIsExpanded(false);
+      setActiveSubmenu(null); // Close all submenus when closing dropdown
     } else {
       if (containerRef.current && !fixedWidth) {
         const initialWidth = containerRef.current.offsetWidth;
@@ -78,20 +317,15 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           const children = listRef.current.children;
           for (let i = 0; i < children.length; i++) {
             const child = children[i] as HTMLElement;
-            // Measure only top-level items; ignore submenu widths
-            const submenu = child.querySelector(':scope > .dropdown-submenu') as HTMLElement | null;
-            if (submenu) submenu.style.display = 'none';
             child.style.whiteSpace = 'nowrap';
             const childWidth = child.scrollWidth;
             child.style.whiteSpace = 'normal';
-            if (submenu) submenu.style.display = '';
             if (childWidth > widestChildWidth) {
               widestChildWidth = childWidth;
             }
           }
         }
         
-        // Calculate required width for header content
         const headerContentWidth = getHeaderContentWidth();
         const requiredWidth = Math.max(initialWidth, widestChildWidth, headerContentWidth) + 60;
         
@@ -103,26 +337,23 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           setShouldUseEllipsis(false);
         }
       } else if (fixedWidth) {
-        // For fixed width, check if content exceeds the current width
         const headerContentWidth = getHeaderContentWidth();
         const currentContainerWidth = containerRef.current ? containerRef.current.offsetWidth : maxWidth;
         setShouldUseEllipsis(headerContentWidth + 60 > currentContainerWidth);
       }
-      setIsOnTop(true);
-      // We no longer calculate height here; a new useEffect will handle it.
       setIsExpanded(true);
     }
   };
 
   useEffect(() => {
-    // This effect now handles observing the list size and updating the height dynamically.
     if (isExpanded && listRef.current && !fixedHeight) {
       const listElement = listRef.current;
 
       const observer = new ResizeObserver(() => {
         const contentHeight = listElement.scrollHeight;
-        const totalHeight = contentHeight + headerHeight + 2; // +2 for border
-        setCurrentHeight(Math.min(totalHeight, maxHeight + 2)); // +2 for border
+        const totalHeight = contentHeight + headerHeight + 2;
+        const newHeight = Math.min(totalHeight, maxHeight + 2);
+        setCurrentHeight(newHeight);
       });
 
       observer.observe(listElement);
@@ -131,70 +362,14 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
         observer.unobserve(listElement);
       };
     } else if (!isExpanded) {
-      // Reset height when closing
-      setCurrentHeight(headerHeight + 2); // +2 for border
+      setCurrentHeight(headerHeight + 2);
     }
   }, [isExpanded, fixedHeight, headerHeight, maxHeight]);
-
-  // Compute widths for all nested submenus so they size to their content
-  useEffect(() => {
-    if (!isExpanded || !listRef.current) return;
-
-    const submenus = Array.from(listRef.current.querySelectorAll<HTMLUListElement>('.dropdown-submenu'));
-
-    const measureSubmenu = (submenu: HTMLUListElement) => {
-      // Temporarily show submenu to measure
-      const prevDisplay = submenu.style.display;
-      const prevVisibility = submenu.style.visibility;
-      const prevPointerEvents = submenu.style.pointerEvents;
-      submenu.style.display = 'block';
-      submenu.style.visibility = 'hidden';
-      submenu.style.pointerEvents = 'none';
-
-      let widestChildWidth = 0;
-      const children = Array.from(submenu.children).filter((el) => el.tagName.toLowerCase() === 'li') as HTMLElement[];
-      for (const child of children) {
-        const nested = child.querySelector(':scope > .dropdown-submenu') as HTMLElement | null;
-        const nestedPrevDisplay = nested ? nested.style.display : '';
-        if (nested) nested.style.display = 'none';
-
-        const prevWs = child.style.whiteSpace;
-        child.style.whiteSpace = 'nowrap';
-        const childWidth = child.scrollWidth;
-        child.style.whiteSpace = prevWs;
-        if (nested) nested.style.display = nestedPrevDisplay;
-
-        if (childWidth > widestChildWidth) widestChildWidth = childWidth;
-      }
-
-      // Account for padding similar to main list items
-      const requiredWidth = Math.min(
-        typeof maxWidth === 'number' ? maxWidth : 320,
-        Math.max(
-          typeof minWidth === 'number' ? minWidth : 120,
-          widestChildWidth + 24
-        )
-      );
-      submenu.style.width = `${requiredWidth}px`;
-
-      // Restore previous styles
-      submenu.style.display = prevDisplay;
-      submenu.style.visibility = prevVisibility;
-      submenu.style.pointerEvents = prevPointerEvents;
-    };
-
-    const measureAll = () => submenus.forEach(measureSubmenu);
-    measureAll();
-
-    // Recompute on window resize
-    window.addEventListener('resize', measureAll);
-    return () => window.removeEventListener('resize', measureAll);
-  }, [isExpanded, minWidth, maxWidth]);
 
   useLayoutEffect(() => {
     if (!fixedWidth && !isExpanded) {
       const headerContentWidth = getHeaderContentWidth();
-      const requiredWidth = headerContentWidth + 60 + 8; // 60px for padding/arrow, 8px for spacing
+      const requiredWidth = headerContentWidth + 60 + 8;
       
       const validMinWidth = typeof minWidth === 'number' ? minWidth : 120;
       const validMaxWidth = typeof maxWidth === 'number' ? maxWidth : 320;
@@ -207,7 +382,18 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsExpanded(false);
+        // Check if click is inside any active submenu
+        let isInsideSubmenu = false;
+        submenuRefs.current.forEach((submenuRef) => {
+          if (submenuRef && submenuRef.contains(event.target as Node)) {
+            isInsideSubmenu = true;
+          }
+        });
+        
+        if (!isInsideSubmenu) {
+          setIsExpanded(false);
+          setActiveSubmenu(null);
+        }
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -215,6 +401,46 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  // Cleanup effect for submenus
+  useEffect(() => {
+    return () => {
+      // Clean up any active submenus when component unmounts
+      setActiveSubmenu(null);
+      setSubmenuPositions(new Map());
+      setSubmenuHoverState(new Map());
+      // Clear all timers
+      submenuTimers.current.forEach(clearTimeout);
+      submenuTimers.current.clear();
+    };
+  }, []);
+
+  // Close submenus when dropdown closes
+  useEffect(() => {
+    if (!isExpanded) {
+      setActiveSubmenu(null);
+      setSubmenuHoverState(new Map());
+      // Clear all timers when dropdown closes
+      submenuTimers.current.forEach(clearTimeout);
+      submenuTimers.current.clear();
+    }
+  }, [isExpanded]);
+
+  // Handle window resize to recalculate submenu positions
+  useEffect(() => {
+    if (!isExpanded || !activeSubmenu) return;
+
+    const handleResize = () => {
+      // Close submenus on resize to avoid positioning issues
+      setActiveSubmenu(null);
+      setSubmenuPositions(new Map());
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, [isExpanded, activeSubmenu]);
 
   useEffect(() => {
     const dropdownNode = dropdownDivRef.current;
@@ -233,7 +459,6 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     };
   }, [isExpanded, headerHeight]);
 
-  // Check for ellipsis on mount and when value changes
   useEffect(() => {
     if (containerRef.current) {
       const headerContentWidth = getHeaderContentWidth();
@@ -245,10 +470,22 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const handleListClick = (e: React.MouseEvent<HTMLUListElement>) => {
     const listItem = (e.target as HTMLElement).closest('li');
     if (!listItem) return;
+    
+    // Check if it's a submenu item with children
+    if (listItem.classList.contains('has-submenu')) {
+      // Find the submenu ID for this trigger item
+      const itemIndex = Array.from(listItem.parentNode?.children || []).indexOf(listItem);
+      const itemKey = `${listItem.textContent?.trim()}-${itemIndex}`;
+      const submenuId = `-${itemKey}`;
+      
+      // Toggle the submenu
+      handleSubmenuTriggerClick(submenuId);
+      return;
+    }
+    
     const valueAttr = listItem.getAttribute('data-value');
     const isLeaf = !!valueAttr;
     if (!isLeaf) {
-      // Clicking a non-leaf (has submenu) should not close or select
       return;
     }
     if (onSelect) {
@@ -256,7 +493,44 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       onSelect(value);
     }
     setIsExpanded(false);
+    setActiveSubmenu(null);
   };
+
+  // Handle clicks on submenu items
+  const handleSubmenuClick = useCallback((e: React.MouseEvent<HTMLUListElement>) => {
+    const listItem = (e.target as HTMLElement).closest('li');
+    if (!listItem) return;
+    
+    // Check if it's a submenu item with children
+    if (listItem.classList.contains('has-submenu')) {
+      return; // Don't close for submenu triggers
+    }
+    
+    const valueAttr = listItem.getAttribute('data-value');
+    if (valueAttr && onSelect) {
+      onSelect(valueAttr);
+      setIsExpanded(false);
+      setActiveSubmenu(null);
+    }
+  }, [onSelect]);
+
+  // Handle clicks on submenu trigger items (toggle behavior)
+  const handleSubmenuTriggerClick = useCallback((submenuId: string) => {
+    if (activeSubmenu === submenuId) {
+      // If submenu is already open, close it
+      setActiveSubmenu(null);
+      setSubmenuHoverState(prev => new Map(prev).set(submenuId, false));
+      // Clear any existing timer for this submenu
+      if (submenuTimers.current.has(submenuId)) {
+        clearTimeout(submenuTimers.current.get(submenuId)!);
+        submenuTimers.current.delete(submenuId);
+      }
+    } else {
+      // If submenu is closed, open it
+      setActiveSubmenu(submenuId);
+      setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
+    }
+  }, [activeSubmenu]);
 
   const generateGradient = (colors: Array<[string, number, string?]>) => {
     if (!colors || !Array.isArray(colors) || colors.length === 0) {
@@ -281,6 +555,85 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     const alphaPercentage = alpha * 100;
     return `color-mix(in srgb, ${color} ${alphaPercentage}%, transparent)`;
   };
+
+  const renderSubmenuItems = (items: SubmenuItem[], parentId: string = ''): ReactNode => {
+    return items.map((item, idx) => {
+      const key = `${item.label}-${idx}`;
+      const submenuId = `${parentId}-${key}`;
+      
+      if (item.children && item.children.length > 0) {
+        const isActive = activeSubmenu === submenuId;
+        return (
+          <li 
+            key={key} 
+            className={`has-submenu ${isActive ? 'active' : ''}`}
+            tabIndex={-1}
+            onMouseEnter={(e) => handleSubmenuEnter(submenuId, e.currentTarget)}
+            onMouseLeave={() => handleSubmenuLeave(submenuId)}
+            onClick={() => handleSubmenuTriggerClick(submenuId)}
+          >
+            <span className="item-label">{item.label}</span>
+            <div className="submenu-arrow" aria-hidden>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                <g transform="translate(0 -32)">
+                  <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5 12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
+                </g>
+              </svg>
+            </div>
+            {/* Render submenu in portal */}
+            {activeSubmenu === submenuId && createPortal(
+              <ul 
+                ref={(el) => {
+                  if (el) submenuRefs.current.set(submenuId, el);
+                }}
+                className="dropdown-submenu-portal"
+                dir={direction}
+                style={{
+                  position: 'fixed',
+                  left: `${submenuPositions.get(submenuId)?.x || 0}px`,
+                  top: `${submenuPositions.get(submenuId)?.y || 0}px`,
+                  width: `${submenuPositions.get(submenuId)?.width || 160}px`,
+                                          height: `${submenuPositions.get(submenuId)?.height || maxHeight}px`,
+                  background: gradientColors ? generateGradient(gradientColors) || background : background,
+                  boxShadow: shadow,
+                  color: textColor,
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: `${finalBorderRadius}px`,
+                  backdropFilter: 'blur(15px) brightness(1.2) saturate(1.5)',
+                  WebkitBackdropFilter: 'blur(15px) brightness(1.2) saturate(1.5)',
+                  fontSize: fontSize,
+                  fontFamily: 'inherit',
+                  zIndex: 10000,
+                  listStyle: 'none',
+                  margin: 0,
+                  padding: '6px 6px',
+                  overflowY: 'auto',
+                  overflowX: 'hidden',
+                  '--arrow-color': textColor,
+                  '--hover-bg-color': hoverColor,
+                } as React.CSSProperties & { 
+                  '--arrow-color': string; 
+                  '--hover-bg-color': string | null;
+                }}
+                onMouseEnter={() => handleSubmenuMouseEnter(submenuId)}
+                onMouseLeave={() => handleSubmenuMouseLeave(submenuId)}
+                onClick={handleSubmenuClick}
+              >
+                {renderSubmenuItems(item.children, submenuId)}
+              </ul>,
+              document.body
+            )}
+          </li>
+        );
+      }
+      
+      return (
+        <li key={key} data-value={item.value || item.label}>
+          <span className="item-label">{item.label}</span>
+        </li>
+      );
+    });
+  };
   
   const initialRad = initialBorderRadius !== undefined ? initialBorderRadius : headerHeight / 2;
   const listMaxHeight = maxHeight - headerHeight;
@@ -288,7 +641,6 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const arrowSize = Math.min(headerHeight * 0.9, headerHeight - 8);
   const headerPadding = Math.max((headerHeight - arrowSize) / 2, 4);
 
-  // These values must match the padding in DropdownMenu.css to ensure alignment
   const listContainerInlinePadding = 6;
   const listItemInlinePadding = 6;
   const totalListIndent = listContainerInlinePadding + listItemInlinePadding;
@@ -328,28 +680,31 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   }
 
   const hoverColor = generateMixedColor(hoverBackground as [string, number]);
+  const gradientBackground = generateGradient(gradientColors || []);
 
+  // Main dropdown styles
   const dropdownStyle: React.CSSProperties = {
-    borderRadius: isExpanded ? `${finalBorderRadius}px` : `${initialRad}px`,
     height: isExpanded ? `${currentHeight}px` : `${headerHeight + 2}px`,
     position: isOnTop ? 'absolute' : 'relative',
-    zIndex: isOnTop ? 999999999 : 'auto',
+    zIndex: isOnTop ? 1000 : 'auto',
     width: '100%',
     top: 0,
-    background: background,
+    background: gradientBackground || background,
     boxShadow: shadow,
+    color: textColor,
+    border: '1px solid rgba(255, 255, 255, 0.2)',
+    borderRadius: isExpanded ? `${finalBorderRadius}px` : `${initialRad}px`,
+    backdropFilter: 'blur(15px) brightness(1.2) saturate(1.5)',
+    WebkitBackdropFilter: 'blur(15px) brightness(1.2) saturate(1.5)',
+    fontSize: fontSize,
+    fontFamily: 'inherit',
     '--arrow-color': textColor,
     '--hover-bg-color': hoverColor,
-  } as React.CSSProperties & { '--arrow-color': string; '--hover-bg-color': string | null };
-
-  const gradientBackground = generateGradient(gradientColors || []);
-  if (gradientBackground) {
-    dropdownStyle.background = gradientBackground;
-  }
-  // Ensure submenu inherits same colors via CSS by exposing variables (cast to any for CSS custom props)
-  (dropdownStyle as any)['--submenu-bg'] = (dropdownStyle.background as string) || background;
-  (dropdownStyle as any)['--submenu-shadow'] = shadow as string;
-
+  } as React.CSSProperties & { 
+    '--arrow-color': string; 
+    '--hover-bg-color': string | null;
+  };
+  
   if(isOnTop) {
     dropdownStyle[isRtl ? 'right' : 'left'] = 0;
   }
@@ -363,7 +718,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     color: textColor,
     display: 'flex',
     flexDirection: 'row',
-    direction: 'ltr', // Force flex main axis left-to-right so arrow can be forced to the left using order
+    direction: 'ltr',
     alignItems: 'center',
     justifyContent: 'space-between',
     position: 'relative',
@@ -386,7 +741,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const listStyle: React.CSSProperties = {
     maxHeight: listMaxHeight,
     textAlign: isRtl ? 'right' : 'left',
-    direction: direction, // inherit explicit dir from prop
+    direction: direction,
     color: textColor,
     '--final-border-radius': `${finalBorderRadius}px`,
   } as React.CSSProperties & { '--final-border-radius': string };
@@ -409,7 +764,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           <div className="dropdown-menu-arrow" style={arrowStyle}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
               <g transform="translate(0 -32)">
-                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
+                <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5 12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
               </g>
             </svg>
           </div>
@@ -420,7 +775,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           style={listStyle} 
           onClick={handleListClick}
         >
-          {children}
+          {items ? renderSubmenuItems(items) : children}
         </ul>
       </div>
     </div>

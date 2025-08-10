@@ -3,7 +3,7 @@ import { geoDataConfig } from '../../config/geoDataConfig';
 import { getMapGeoJsonPath } from '../../config/geoJsonConfig';
 import { getPointDataConfigNames } from '../../config/pointDataConfig';
 import { getFlowDataConfigNames } from '../../config/flowDataConfig';
-import DropdownMenu from './DropdownMenu';
+import DropdownMenu, { SubmenuItem } from './DropdownMenu';
 import { getControlItems, getNestedControlItems, validateControlsConfig, resolveDataControlValue, ControlNode } from '../../config/controlsConfig';
 
 export interface ControlsProps {
@@ -69,52 +69,36 @@ const Controls: React.FC<ControlsProps> = ({
     return datasetOptions.includes(resolved);
   };
 
-  const renderNodes = (nodes: ControlNode[], type: 'data' | 'map'): React.ReactNode => {
-    return nodes.map((node, idx) => {
-      const key = `${node.label}-${idx}`;
-      if (node.children && node.children.length > 0) {
-        // For parent items, render submenu only if it has at least one valid child
-        const childrenContent = renderNodes(
-          node.children.filter((child) => {
-            if (type === 'map') return true;
-            return child.children ? true : isAllowedLeaf(child.value);
-          }),
-          type
-        );
-        const hasChildren = React.Children.count(childrenContent) > 0;
-        if (!hasChildren) return null;
-        return (
-          <li key={key} className="has-submenu" tabIndex={-1}>
-            <span className="item-label">{node.label}</span>
-            <div className="submenu-arrow" aria-hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                <g transform="translate(0 -32)">
-                  <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
-                </g>
-              </svg>
-            </div>
-            <ul className="dropdown-submenu">{childrenContent}</ul>
-          </li>
-        );
-      }
-
-      // Leaf
-      if (type === 'data') {
-        const resolved = resolveDataControlValue(node.value as string);
-        if (isDatasetValue(resolved) && !datasetOptions.includes(resolved)) return null;
-        return (
-          <li key={key} data-value={resolved}>
-            {node.label}
-          </li>
-        );
-      }
-      // map leaf
-      return (
-        <li key={key} data-value={node.value}>
-          {node.label}
-        </li>
-      );
-    });
+  // Convert ControlNode to SubmenuItem format
+  const convertToSubmenuItems = (nodes: ControlNode[], type: 'data' | 'map'): SubmenuItem[] => {
+    return nodes
+      .filter(node => {
+        if (type === 'map') return true;
+        if (node.children && node.children.length > 0) {
+          // For parent items, include only if they have at least one valid child
+          const validChildren = node.children.filter(child => {
+            if (child.children) return true;
+            return isAllowedLeaf(child.value);
+          });
+          return validChildren.length > 0;
+        }
+        return isAllowedLeaf(node.value);
+      })
+      .map(node => {
+        if (type === 'data' && node.value) {
+          const resolvedValue = resolveDataControlValue(node.value);
+          return {
+            label: node.label,
+            value: resolvedValue,
+            children: node.children ? convertToSubmenuItems(node.children, type) : undefined
+          };
+        }
+        return {
+          label: node.label,
+          value: node.value,
+          children: node.children ? convertToSubmenuItems(node.children, type) : undefined
+        };
+      });
   };
 
   const handleCombinedDataChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -168,6 +152,7 @@ const Controls: React.FC<ControlsProps> = ({
               const event = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
               handleCombinedDataChange(event);
             }}
+           items={convertToSubmenuItems(nestedDataItems, 'data')}
            minWidth={120}
            headerHeight={45}
            fontSize="var(--font-size-lg)"
@@ -177,9 +162,7 @@ const Controls: React.FC<ControlsProps> = ({
            gradientColors={[['var(--color-gray1)', 0.3], ['var(--color-gray1)', 0.01]]}
            shadow="var(--elevation-2)"
            hoverBackground={['var(--color-gray12)', 0.15]}
-          >
-            {renderNodes(nestedDataItems, 'data')}
-          </DropdownMenu>
+          />
           {' '}نسبت به{' '}
            <DropdownMenu
             value={configuredMapItems.find(i => i.value === mapId)?.label || mapId}
@@ -187,6 +170,7 @@ const Controls: React.FC<ControlsProps> = ({
               const event = { target: { value } } as React.ChangeEvent<HTMLSelectElement>;
               onMapChange(event);
             }}
+           items={convertToSubmenuItems(nestedMapItems, 'map')}
            minWidth={120}
            headerHeight={45}
            fontSize="var(--font-size-lg)"
@@ -196,9 +180,7 @@ const Controls: React.FC<ControlsProps> = ({
            gradientColors={[['var(--color-gray1)', 0.3], ['var(--color-gray1)', 0.01]]}
            shadow="var(--elevation-2)"
            hoverBackground={['var(--color-gray12)', 0.15]}
-           >
-            {renderNodes(nestedMapItems, 'map')}
-          </DropdownMenu>
+           />
 
       </h2>
     </div>

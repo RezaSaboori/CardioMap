@@ -1,3 +1,2 @@
-import DropdownMenu from './DropdownMenu';
-export type { DropdownMenuProps } from './DropdownMenu';
-export default DropdownMenu; 
+export { default } from './DropdownMenu';
+export type { DropdownMenuProps, SubmenuItem } from './DropdownMenu'; 

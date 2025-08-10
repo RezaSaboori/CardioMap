@@ -55,9 +55,14 @@ export const controlsConfig: Record<string, SingleControlConfig> = {
     // You can extend this list; validator will log missing map IDs
     items: [
       { label: 'کل کشور', value: 'Iran' },
-      
-      
-      
+      { label: 'تهران', value: 'Tehran' },
+      { label: 'البرز', value: 'Alborz' },
+      { label: 'اردبیل', value: 'Ardabil' },
+      { label: 'بوشهر', value: 'Bushehr' },
+      { label: 'چهارمحال و بختیاری', value: 'ChaharmahalandBakhtiyari' },
+      { label: 'آذربایجان شرقی', value: 'EastAzerbaijan' },
+      { label: 'فارس', value: 'Fars' },
+      { label: 'گیلان', value: 'Gilan' },
       {
         label: 'استان‌ها',
         children: [
