@@ -6,6 +6,7 @@ export interface SubmenuItem {
   label: string;
   value?: string;
   children?: SubmenuItem[];
+  accordion?: boolean; // Whether this item should behave as an accordion (click to expand/collapse)
 }
 
 export interface DropdownMenuProps {
@@ -29,6 +30,14 @@ export interface DropdownMenuProps {
   activeBackground?: [string, number];
   fixedWidth?: boolean;
   fixedHeight?: boolean;
+  /**
+   * Limits how many ancestor segments to show in the header path, counted from the leaf upward.
+   * - 0: show only the leaf label
+   * - 1: show parent : leaf
+   * - 2: show grandparent : parent : leaf
+   * - undefined: show full path
+   */
+  headerPathDepth?: number;
 }
 
 interface SubmenuPosition {
@@ -59,22 +68,26 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   activeBackground = ['rgba(255,255,255,1)', 0.2],
   fixedWidth = false,
   fixedHeight = false,
+  headerPathDepth,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOnTop, setIsOnTop] = useState(false);
   const [currentWidth, setCurrentWidth] = useState(minWidth);
   const [currentHeight, setCurrentHeight] = useState(headerHeight + 2);
   const [shouldUseEllipsis, setShouldUseEllipsis] = useState(false);
-  const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
+  const [activeSubmenus, setActiveSubmenus] = useState<Set<string>>(new Set());
   const [submenuPositions, setSubmenuPositions] = useState<Map<string, SubmenuPosition>>(new Map());
   const [submenuHoverState, setSubmenuHoverState] = useState<Map<string, boolean>>(new Map());
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [activeItemIds, setActiveItemIds] = useState<Set<string>>(new Set());
+  const [expandedAccordions, setExpandedAccordions] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownDivRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const submenuRefs = useRef<Map<string, HTMLUListElement>>(new Map());
   const submenuTimers = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const submenuTriggerRects = useRef<Map<string, DOMRect>>(new Map());
+  const lastMousePosRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
   const isRtl = direction === 'rtl';
 
@@ -82,22 +95,36 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   const getDisplayLabel = useCallback((): string => {
     if (!items) return value;
     
-    const findItemByValue = (items: SubmenuItem[]): SubmenuItem | null => {
+    const findItemPathByValue = (items: SubmenuItem[], path: string[] = []): string[] | null => {
       for (const item of items) {
+        const currentPath = [...path, item.label];
+        
         if (item.value === value) {
-          return item;
+          return currentPath;
         }
+        
         if (item.children) {
-          const found = findItemByValue(item.children);
+          const found = findItemPathByValue(item.children, currentPath);
           if (found) return found;
         }
       }
       return null;
     };
     
-    const foundItem = findItemByValue(items);
-    return foundItem ? foundItem.label : value;
-  }, [items, value]);
+    const foundPath = findItemPathByValue(items);
+    if (foundPath) {
+      // Apply header path depth limiting from leaf upward when provided
+      if (typeof headerPathDepth === 'number' && headerPathDepth >= 0) {
+        const segmentsToShow = Math.min(foundPath.length, headerPathDepth + 1);
+        const limitedPath = foundPath.slice(-segmentsToShow);
+        return limitedPath.join(' : ');
+      }
+      // Default behavior: show full path for nested, or just label for top-level
+      return foundPath.join(' : ');
+    }
+    
+    return value;
+  }, [items, value, headerPathDepth]);
 
   // Helper function to generate item ID consistently
   const generateItemId = useCallback((item: SubmenuItem, index: number, parentId: string = ''): string => {
@@ -107,24 +134,13 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
   // Helper function to find initial active items (only for items prop changes)
   const findActiveItems = useCallback((items: SubmenuItem[], parentId: string = ''): Set<string> => {
-    console.log('🔍 findActiveItems called with:', { items, parentId, currentValue: value });
     const activeIds = new Set<string>();
     
     items.forEach((item, index) => {
       const itemId = generateItemId(item, index, parentId);
       
-      console.log(`🔍 findActiveItems - checking item:`, {
-        label: item.label,
-        value: item.value,
-        itemId,
-        parentId,
-        currentValue: value,
-        matches: item.value === value
-      });
-      
       // Only add items that are selected by default (when items prop changes)
       if (item.value === value) {
-        console.log('🔍 findActiveItems - adding to activeIds:', itemId);
         activeIds.add(itemId);
       }
       
@@ -135,32 +151,21 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       }
     });
     
-    console.log('🔍 findActiveItems - returning activeIds:', Array.from(activeIds));
     return activeIds;
   }, [value, generateItemId]);
 
   // Update active items only when items prop changes (not on every value/activeSubmenu change)
   useEffect(() => {
-    console.log('🔍 useEffect - items changed, updating activeItemIds');
-    console.log('🔍 useEffect - current value:', value);
-    console.log('🔍 useEffect - current items:', items);
-    
     if (items) {
       const newActiveItems = findActiveItems(items);
-      console.log('🔍 useEffect - newActiveItems:', Array.from(newActiveItems));
       setActiveItemIds(newActiveItems);
     }
   }, [items, findActiveItems]);
 
   // Update active items when value prop changes
   useEffect(() => {
-    console.log('🔍 useEffect - value changed, updating activeItemIds');
-    console.log('🔍 useEffect - new value:', value);
-    console.log('🔍 useEffect - current items:', items);
-    
     if (items) {
       const newActiveItems = findActiveItems(items);
-      console.log('🔍 useEffect - newActiveItems after value change:', Array.from(newActiveItems));
       setActiveItemIds(newActiveItems);
     }
   }, [value, items, findActiveItems]);
@@ -178,6 +183,41 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     document.body.removeChild(tempSpan);
     return textWidth;
   }, [fontSize, getDisplayLabel]);
+
+  // Helper function to measure all possible item widths including accordion content
+  const measureAllItemWidths = useCallback(() => {
+    if (!items) return 0;
+
+    const tempSpan = document.createElement('span');
+    tempSpan.style.visibility = 'hidden';
+    tempSpan.style.position = 'absolute';
+    tempSpan.style.fontSize = fontSize;
+    tempSpan.style.fontWeight = '500';
+    tempSpan.style.whiteSpace = 'nowrap';
+    tempSpan.style.padding = '6px 12px'; // Same padding as dropdown items
+    document.body.appendChild(tempSpan);
+
+    let maxWidth = 0;
+
+    const measureItems = (itemList: SubmenuItem[]) => {
+      itemList.forEach(item => {
+        tempSpan.textContent = item.label;
+        const width = tempSpan.scrollWidth;
+        if (width > maxWidth) {
+          maxWidth = width;
+        }
+        
+        // Recursively measure children (accordion content)
+        if (item.children) {
+          measureItems(item.children);
+        }
+      });
+    };
+
+    measureItems(items);
+    document.body.removeChild(tempSpan);
+    return maxWidth;
+  }, [items, fontSize]);
 
   const calculateSubmenuPosition = useCallback((triggerElement: HTMLElement, submenuId: string): SubmenuPosition => {
     const rect = triggerElement.getBoundingClientRect();
@@ -346,41 +386,150 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       submenuTimers.current.delete(submenuId);
     }
     
+    // Clear unrelated submenus (not parent or child of current submenu)
+    setActiveSubmenus(prev => {
+      const newSet = new Set<string>();
+      // Keep submenus that are in the hierarchy of the current submenu
+      Array.from(prev).forEach(activeId => {
+        if (activeId === submenuId || 
+            submenuId.startsWith(activeId + '-') || 
+            activeId.startsWith(submenuId + '-')) {
+          newSet.add(activeId);
+        }
+      });
+      // Add the new submenu
+      newSet.add(submenuId);
+      return newSet;
+    });
+    
     const position = calculateSubmenuPosition(triggerElement, submenuId);
+    // Track trigger rect to build a hover bridge into the portal
+    try {
+      submenuTriggerRects.current.set(submenuId, triggerElement.getBoundingClientRect());
+    } catch {}
     setSubmenuPositions(prev => new Map(prev).set(submenuId, position));
-    setActiveSubmenu(submenuId);
     setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
     
-    // Immediately add to active items
+    // Add to active items (keep only related ones)
     setActiveItemIds(prev => {
-      const newActiveItems = new Set(prev);
-      newActiveItems.add(submenuId);
-      return newActiveItems;
+      const newSet = new Set<string>();
+      // Keep items that are in the hierarchy of the current submenu
+      Array.from(prev).forEach(activeId => {
+        if (activeId === submenuId || 
+            submenuId.startsWith(activeId + '-') || 
+            activeId.startsWith(submenuId + '-')) {
+          newSet.add(activeId);
+        }
+      });
+      newSet.add(submenuId);
+      return newSet;
     });
   }, [calculateSubmenuPosition]);
+
+  // Helper: determine if pointer is within submenu portal or the corridor between trigger and portal
+  const isPointerInPortalOrBridge = useCallback((submenuId: string): boolean => {
+    const portal = submenuRefs.current.get(submenuId);
+    const portalPos = submenuPositions.get(submenuId);
+    const triggerRect = submenuTriggerRects.current.get(submenuId);
+    const { x, y } = lastMousePosRef.current;
+
+    // If pointer is inside portal element, keep open
+    if (portal) {
+      const elAtPoint = document.elementFromPoint(x, y);
+      if (elAtPoint && portal.contains(elAtPoint)) return true;
+    }
+    // If we have geometry, check corridor between trigger and portal
+    if (portalPos && triggerRect) {
+      const portalRect = new DOMRect(
+        portalPos.x,
+        portalPos.y,
+        portalPos.width,
+        portalPos.height
+      );
+      const padding = 10;
+      // Horizontal corridor between trigger and portal
+      let x1: number;
+      let x2: number;
+      if (portalRect.x >= triggerRect.right) {
+        // LTR: portal to the right
+        x1 = triggerRect.right - padding;
+        x2 = portalRect.x + padding;
+      } else if (portalRect.right <= triggerRect.left) {
+        // RTL: portal to the left
+        x1 = portalRect.right - padding;
+        x2 = triggerRect.left + padding;
+      } else {
+        // Overlapping horizontally; expand minimal corridor around overlap
+        x1 = Math.min(triggerRect.left, portalRect.x) - padding;
+        x2 = Math.max(triggerRect.right, portalRect.right) + padding;
+      }
+      // Vertical extent: use overlap if exists, otherwise union with padding
+      const overlapTop = Math.max(triggerRect.top, portalRect.top);
+      const overlapBottom = Math.min(triggerRect.bottom, portalRect.bottom);
+      let y1: number;
+      let y2: number;
+      if (overlapBottom > overlapTop) {
+        y1 = overlapTop - padding;
+        y2 = overlapBottom + padding;
+      } else {
+        y1 = Math.min(triggerRect.top, portalRect.top) - padding;
+        y2 = Math.max(triggerRect.bottom, portalRect.bottom) + padding;
+      }
+      if (x >= Math.min(x1, x2) && x <= Math.max(x1, x2) && y >= Math.min(y1, y2) && y <= Math.max(y1, y2)) {
+        return true;
+      }
+    }
+    return false;
+  }, [submenuPositions]);
 
   const handleSubmenuLeave = useCallback((submenuId: string) => {
     setSubmenuHoverState(prev => new Map(prev).set(submenuId, false));
     
-    // Set a longer delay to prevent submenu from closing instantly
+    // Allow time to move pointer into the submenu portal or across the hover bridge
     const timer = setTimeout(() => {
-      setActiveSubmenu(prev => {
-        // Only close if we're still on the same submenu and no hover state is active
-        if (prev === submenuId && !submenuHoverState.get(submenuId)) {
-          // Remove from active items when submenu closes
-          setActiveItemIds(prev => {
-            const newActiveItems = new Set(prev);
-            newActiveItems.delete(submenuId);
-            return newActiveItems;
+      if (isPointerInPortalOrBridge(submenuId)) {
+        return; // keep open, user is moving toward/within submenu
+      }
+      // Check if submenu is still not hovered and no child submenus are active
+      if (!submenuHoverState.get(submenuId)) {
+        // Check if we're currently hovering any related submenu
+        const isHoveringRelated = Array.from(submenuHoverState.entries()).some(([id, isHovered]) => {
+          return isHovered && (id.startsWith(submenuId + '-') || submenuId.startsWith(id + '-'));
+        });
+        
+        if (!isHoveringRelated) {
+          // Close this submenu and all its children
+          setActiveSubmenus(prev => {
+            const newSet = new Set(prev);
+            // Remove this submenu
+            newSet.delete(submenuId);
+            // Remove all child submenus (those that start with submenuId-)
+            Array.from(newSet).forEach(activeId => {
+              if (activeId.startsWith(submenuId + '-')) {
+                newSet.delete(activeId);
+              }
+            });
+            return newSet;
           });
-          return null;
+          
+          // Remove from active items
+          setActiveItemIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(submenuId);
+            // Remove child items too
+            Array.from(newSet).forEach(activeId => {
+              if (activeId.startsWith(submenuId + '-')) {
+                newSet.delete(activeId);
+              }
+            });
+            return newSet;
+          });
         }
-        return prev;
-      });
-    }, 300); // Increased delay to 300ms for better user experience
+      }
+    }, 300);
     
     submenuTimers.current.set(submenuId, timer);
-  }, [submenuHoverState]);
+  }, [submenuHoverState, activeSubmenus, isPointerInPortalOrBridge]);
 
   const handleSubmenuMouseEnter = useCallback((submenuId: string) => {
     // Clear any existing timer for this submenu
@@ -390,58 +539,106 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     }
     
     setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
-    setActiveSubmenu(submenuId);
     
-    // Ensure submenu stays in active items
+    // Keep only related submenus open
+    setActiveSubmenus(prev => {
+      const newSet = new Set<string>();
+      // Keep submenus that are in the hierarchy of the current submenu
+      Array.from(prev).forEach(activeId => {
+        if (activeId === submenuId || 
+            submenuId.startsWith(activeId + '-') || 
+            activeId.startsWith(submenuId + '-')) {
+          newSet.add(activeId);
+        }
+      });
+      newSet.add(submenuId);
+      return newSet;
+    });
+    
+    // Ensure submenu stays in active items (keep only related ones)
     setActiveItemIds(prev => {
-      const newActiveItems = new Set(prev);
-      newActiveItems.add(submenuId);
-      return newActiveItems;
+      const newSet = new Set<string>();
+      // Keep items that are in the hierarchy of the current submenu
+      Array.from(prev).forEach(activeId => {
+        if (activeId === submenuId || 
+            submenuId.startsWith(activeId + '-') || 
+            activeId.startsWith(submenuId + '-')) {
+          newSet.add(activeId);
+        }
+      });
+      newSet.add(submenuId);
+      return newSet;
     });
   }, []);
 
   const handleSubmenuMouseLeave = useCallback((submenuId: string) => {
     setSubmenuHoverState(prev => new Map(prev).set(submenuId, false));
     
-    // Set a longer delay when leaving the submenu itself
+    // Allow time to move pointer back to parent or into a child submenu
     const timer = setTimeout(() => {
-      setActiveSubmenu(prev => {
-        if (prev === submenuId && !submenuHoverState.get(submenuId)) {
-          // Remove from active items when submenu closes
-          setActiveItemIds(prev => {
-            const newActiveItems = new Set(prev);
-            newActiveItems.delete(submenuId);
-            return newActiveItems;
+      if (isPointerInPortalOrBridge(submenuId)) {
+        return; // keep open
+      }
+      // Check if submenu is still not hovered and no child submenus are active
+      if (!submenuHoverState.get(submenuId)) {
+        // Check if we're currently hovering any related submenu
+        const isHoveringRelated = Array.from(submenuHoverState.entries()).some(([id, isHovered]) => {
+          return isHovered && (id.startsWith(submenuId + '-') || submenuId.startsWith(id + '-'));
+        });
+        
+        if (!isHoveringRelated) {
+          // Close this submenu and all its children
+          setActiveSubmenus(prev => {
+            const newSet = new Set(prev);
+            // Remove this submenu
+            newSet.delete(submenuId);
+            // Remove all child submenus (those that start with submenuId-)
+            Array.from(newSet).forEach(activeId => {
+              if (activeId.startsWith(submenuId + '-')) {
+                newSet.delete(activeId);
+              }
+            });
+            return newSet;
           });
-          return null;
+          
+          // Remove from active items
+          setActiveItemIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(submenuId);
+            // Remove child items too
+            Array.from(newSet).forEach(activeId => {
+              if (activeId.startsWith(submenuId + '-')) {
+                newSet.delete(activeId);
+              }
+            });
+            return newSet;
+          });
         }
-        return prev;
-      });
-    }, 200);
+      }
+    }, 250);
     
     submenuTimers.current.set(submenuId, timer);
-  }, [submenuHoverState]);
+  }, [submenuHoverState, activeSubmenus, isPointerInPortalOrBridge]);
+
+  // Close all open submenus immediately (used when hovering/clicking other parts)
+  const closeAllSubmenus = useCallback(() => {
+    setActiveSubmenus(new Set());
+    setSubmenuHoverState(new Map());
+    setActiveItemIds(new Set());
+  }, []);
 
   const toggleDropdown = () => {
     if (isExpanded) {
       setIsExpanded(false);
-      setActiveSubmenu(null); // Close all submenus when closing dropdown
+      setActiveSubmenus(new Set()); // Close all submenus when closing dropdown
+      setActiveItemIds(new Set()); // Clear all active items
+      setSubmenuHoverState(new Map()); // Clear all hover states
+      setExpandedAccordions(new Set()); // Clear all accordion states
     } else {
       if (containerRef.current && !fixedWidth) {
         const initialWidth = containerRef.current.offsetWidth;
-        let widestChildWidth = 0;
-        if (listRef.current) {
-          const children = listRef.current.children;
-          for (let i = 0; i < children.length; i++) {
-            const child = children[i] as HTMLElement;
-            child.style.whiteSpace = 'nowrap';
-            const childWidth = child.scrollWidth;
-            child.style.whiteSpace = 'normal';
-            if (childWidth > widestChildWidth) {
-              widestChildWidth = childWidth;
-            }
-          }
-        }
+        // Measure all possible item widths including accordion content
+        const widestChildWidth = measureAllItemWidths();
         
         const headerContentWidth = getHeaderContentWidth();
         const requiredWidth = Math.max(initialWidth, widestChildWidth, headerContentWidth) + 60;
@@ -509,15 +706,22 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
         
         if (!isInsideSubmenu) {
           setIsExpanded(false);
-          setActiveSubmenu(null);
-          // Clear active items when dropdown closes
+          setActiveSubmenus(new Set());
+          // Clear all active items and hover states when dropdown closes
           setActiveItemIds(new Set());
+          setSubmenuHoverState(new Map());
+          setExpandedAccordions(new Set());
         }
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
+    const handleMouseMove = (e: MouseEvent) => {
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+    };
+    window.addEventListener('mousemove', handleMouseMove);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener('mousemove', handleMouseMove);
     };
   }, []);
 
@@ -525,9 +729,10 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   useEffect(() => {
     return () => {
       // Clean up any active submenus when component unmounts
-      setActiveSubmenu(null);
+      setActiveSubmenus(new Set());
       setSubmenuPositions(new Map());
       setSubmenuHoverState(new Map());
+      setExpandedAccordions(new Set());
       // Clear all timers
       submenuTimers.current.forEach(clearTimeout);
       submenuTimers.current.clear();
@@ -538,9 +743,6 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
   // Track selected item when value prop changes
   useEffect(() => {
-    console.log('🔍 DropdownMenu useEffect - value prop changed:', value);
-    console.log('🔍 DropdownMenu useEffect - items:', items);
-    
     if (items) {
       // Find the item that matches the current value
       const findSelectedItem = (items: SubmenuItem[], parentId: string = ''): string | null => {
@@ -549,17 +751,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           // Use consistent ID generation
           const itemId = generateItemId(item, i, parentId);
           
-          console.log(`🔍 findSelectedItem - checking item:`, {
-            label: item.label,
-            value: item.value,
-            itemId,
-            parentId,
-            currentValue: value,
-            matches: item.value === value
-          });
-          
           if (item.value === value) {
-            console.log('🔍 findSelectedItem - found match! itemId:', itemId);
             return itemId;
           }
           
@@ -572,7 +764,6 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       };
       
       const foundId = findSelectedItem(items);
-      console.log('🔍 DropdownMenu useEffect - foundId:', foundId);
       setSelectedItemId(foundId);
     }
   }, [value, items, generateItemId]);
@@ -580,8 +771,9 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
   // Close submenus when dropdown closes
   useEffect(() => {
     if (!isExpanded) {
-      setActiveSubmenu(null);
+      setActiveSubmenus(new Set());
       setSubmenuHoverState(new Map());
+      setActiveItemIds(new Set());
       // Clear all timers when dropdown closes
       submenuTimers.current.forEach(clearTimeout);
       submenuTimers.current.clear();
@@ -590,19 +782,21 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
 
   // Handle window resize to recalculate submenu positions
   useEffect(() => {
-    if (!isExpanded || !activeSubmenu) return;
+    if (!isExpanded || activeSubmenus.size === 0) return;
 
     const handleResize = () => {
       // Close submenus on resize to avoid positioning issues
-      setActiveSubmenu(null);
+      setActiveSubmenus(new Set());
       setSubmenuPositions(new Map());
+      setActiveItemIds(new Set());
+      setSubmenuHoverState(new Map());
     };
 
     window.addEventListener('resize', handleResize);
     return () => {
       window.removeEventListener('resize', handleResize);
     };
-  }, [isExpanded, activeSubmenu]);
+  }, [isExpanded, activeSubmenus]);
 
   useEffect(() => {
     const dropdownNode = dropdownDivRef.current;
@@ -633,17 +827,20 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     const listItem = (e.target as HTMLElement).closest('li');
     if (!listItem) return;
     
-    console.log('🔍 handleListClick - clicked listItem:', listItem);
+    // Check if it's an accordion item
+    if (listItem.classList.contains('accordion-item')) {
+      // For accordion items, the click should be handled by the accordion header
+      return;
+    }
     
     // Check if it's a submenu item with children
     if (listItem.classList.contains('has-submenu')) {
-      console.log('🔍 handleListClick - has-submenu item clicked');
+      // Any click on a different parent should close other submenus
+      closeAllSubmenus();
       // Find the submenu ID for this trigger item
       const itemIndex = Array.from(listItem.parentNode?.children || []).indexOf(listItem);
       const itemKey = listItem.textContent?.trim() || '';
       const submenuId = `-${itemKey}-${itemIndex}`;
-      
-      console.log('🔍 handleListClick - submenuId:', submenuId);
       
       // Toggle the submenu
       handleSubmenuTriggerClick(submenuId);
@@ -653,15 +850,11 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     const valueAttr = listItem.getAttribute('data-value');
     const isLeaf = !!valueAttr;
     if (!isLeaf) {
-      console.log('🔍 handleListClick - not a leaf item, returning');
       return;
     }
     
-    console.log('🔍 handleListClick - leaf item clicked, valueAttr:', valueAttr);
-    
     if (onSelect) {
       const value = valueAttr || listItem.textContent || '';
-      console.log('🔍 handleListClick - calling onSelect with value:', value);
       onSelect(value);
       
       // Find the correct item ID using the same logic as the useEffect
@@ -671,17 +864,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
             const item = items[i];
             const itemId = generateItemId(item, i, parentId);
             
-            console.log(`🔍 findClickedItemId - checking item:`, {
-              label: item.label,
-              value: item.value,
-              itemId,
-              parentId,
-              clickedValue: value,
-              matches: item.value === value
-            });
-            
             if (item.value === value) {
-              console.log('🔍 findClickedItemId - found match! itemId:', itemId);
               return itemId;
             }
             
@@ -694,7 +877,6 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
         };
         
         const clickedItemId = findClickedItemId(items);
-        console.log('🔍 handleListClick - clickedItemId:', clickedItemId);
         
         if (clickedItemId) {
           setSelectedItemId(clickedItemId);
@@ -702,13 +884,14 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           // Immediately update active items to show the new selection
           const newActiveItems = new Set<string>();
           newActiveItems.add(clickedItemId);
-          console.log('🔍 handleListClick - setting newActiveItems:', Array.from(newActiveItems));
           setActiveItemIds(newActiveItems);
         }
       }
     }
-    setIsExpanded(false);
-    setActiveSubmenu(null);
+      // Close any open submenus when a leaf is selected
+      closeAllSubmenus();      
+      setIsExpanded(false);
+      setActiveSubmenus(new Set());
   };
 
   // Handle clicks on submenu items
@@ -716,19 +899,14 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
     const listItem = (e.target as HTMLElement).closest('li');
     if (!listItem) return;
     
-    console.log('🔍 handleSubmenuClick - clicked listItem:', listItem);
-    
     // Check if it's a submenu item with children
     if (listItem.classList.contains('has-submenu')) {
-      console.log('🔍 handleSubmenuClick - has-submenu item clicked, returning');
       return; // Don't close for submenu triggers
     }
     
     const valueAttr = listItem.getAttribute('data-value');
-    console.log('🔍 handleSubmenuClick - valueAttr:', valueAttr);
     
     if (valueAttr && onSelect) {
-      console.log('🔍 handleSubmenuClick - calling onSelect with value:', valueAttr);
       onSelect(valueAttr);
       
       // Find the correct item ID using the same logic as the useEffect
@@ -738,17 +916,7 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
             const item = items[i];
             const itemId = generateItemId(item, i, parentId);
             
-            console.log(`🔍 findClickedSubmenuItemId - checking item:`, {
-              label: item.label,
-              value: item.value,
-              itemId,
-              parentId,
-              clickedValue: valueAttr,
-              matches: item.value === valueAttr
-            });
-            
             if (item.value === valueAttr) {
-              console.log('🔍 findClickedSubmenuItemId - found match! itemId:', itemId);
               return itemId;
             }
             
@@ -761,7 +929,6 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
         };
         
         const clickedItemId = findClickedSubmenuItemId(items);
-        console.log('🔍 handleSubmenuClick - clickedItemId:', clickedItemId);
         
         if (clickedItemId) {
           setSelectedItemId(clickedItemId);
@@ -769,21 +936,34 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
           // Immediately update active items to show the new selection
           const newActiveItems = new Set<string>();
           newActiveItems.add(clickedItemId);
-          console.log('🔍 handleSubmenuClick - setting newActiveItems:', Array.from(newActiveItems));
           setActiveItemIds(newActiveItems);
         }
       }
       
+      // After selecting a leaf in submenu, close all open nested menus
+      closeAllSubmenus();
       setIsExpanded(false);
-      setActiveSubmenu(null);
+      setActiveSubmenus(new Set());
     }
-  }, [onSelect, items, generateItemId]);
+  }, [onSelect, items, generateItemId, closeAllSubmenus]);
 
   // Handle clicks on submenu trigger items (toggle behavior)
   const handleSubmenuTriggerClick = useCallback((submenuId: string) => {
-    if (activeSubmenu === submenuId) {
-      // If submenu is already open, close it
-      setActiveSubmenu(null);
+    if (activeSubmenus.has(submenuId)) {
+      // If submenu is already open, close it and all children
+      setActiveSubmenus(prev => {
+        const newSet = new Set(prev);
+        // Remove this submenu
+        newSet.delete(submenuId);
+        // Remove all child submenus (those that start with submenuId-)
+        Array.from(newSet).forEach(activeId => {
+          if (activeId.startsWith(submenuId + '-')) {
+            newSet.delete(activeId);
+          }
+        });
+        return newSet;
+      });
+      
       setSubmenuHoverState(prev => new Map(prev).set(submenuId, false));
       // Clear any existing timer for this submenu
       if (submenuTimers.current.has(submenuId)) {
@@ -791,25 +971,40 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
         submenuTimers.current.delete(submenuId);
       }
       
-                            // Remove from active items when closing submenu
-                      setActiveItemIds(prev => {
-                        const newActiveItems = new Set(prev);
-                        newActiveItems.delete(submenuId);
-                        return newActiveItems;
-                      });
+      // Remove from active items
+      setActiveItemIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(submenuId);
+        // Remove child items too
+        Array.from(newSet).forEach(activeId => {
+          if (activeId.startsWith(submenuId + '-')) {
+            newSet.delete(activeId);
+          }
+        });
+        return newSet;
+      });
     } else {
-      // If submenu is closed, open it
-      setActiveSubmenu(submenuId);
-      setSubmenuHoverState(prev => new Map(prev).set(submenuId, true));
-      
-                            // Add to active items when opening submenu
-                      setActiveItemIds(prev => {
-                        const newActiveItems = new Set(prev);
-                        newActiveItems.add(submenuId);
-                        return newActiveItems;
-                      });
+      // If submenu is closed, open ONLY this submenu and close others
+      setActiveSubmenus(new Set([submenuId]));
+      setSubmenuHoverState(new Map([[submenuId, true]]));
+      setActiveItemIds(new Set([submenuId]));
     }
-  }, [activeSubmenu]);
+  }, [activeSubmenus]);
+
+  // Handle clicks on accordion items (toggle behavior)
+  const handleAccordionToggle = useCallback((accordionId: string) => {
+    // Interacting with accordion should close any open nested submenus
+    closeAllSubmenus();
+    setExpandedAccordions(prev => {
+      const newExpanded = new Set(prev);
+      if (newExpanded.has(accordionId)) {
+        newExpanded.delete(accordionId);
+      } else {
+        newExpanded.add(accordionId);
+      }
+      return newExpanded;
+    });
+  }, [closeAllSubmenus]);
 
   const generateGradient = (colors: Array<[string, number, string?]>) => {
     if (!colors || !Array.isArray(colors) || colors.length === 0) {
@@ -843,96 +1038,111 @@ const DropdownMenu: React.FC<DropdownMenuProps> = ({
       if (item.children && item.children.length > 0) {
         const isActive = activeItemIds.has(submenuId);
         const isSelected = selectedItemId === submenuId;
-        const isSubmenuOpen = activeSubmenu === submenuId;
         
-        console.log(`🔍 renderSubmenuItems (parent) - item: ${item.label}`, {
-          submenuId,
-          isActive,
-          isSelected,
-          isSubmenuOpen,
-          activeItemIds: Array.from(activeItemIds),
-          selectedItemId
-        });
-        
-        const className = `has-submenu ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isSubmenuOpen ? 'submenu-open' : ''}`;
-        
-        return (
-          <li 
-            key={key} 
-            className={className}
-            tabIndex={-1}
-            onMouseEnter={(e) => handleSubmenuEnter(submenuId, e.currentTarget)}
-            onMouseLeave={() => handleSubmenuLeave(submenuId)}
-            onClick={() => handleSubmenuTriggerClick(submenuId)}
-          >
-            <span className="item-label">{item.label}</span>
-            <div className="submenu-arrow" aria-hidden>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-                <g transform="translate(0 -32)">
-                  <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5 12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
-                </g>
-              </svg>
-            </div>
-            {/* Render submenu in portal */}
-            {activeSubmenu === submenuId && createPortal(
-              <ul 
-                ref={(el) => {
-                  if (el) submenuRefs.current.set(submenuId, el);
+        // Check if this item is an accordion
+        if (item.accordion) {
+          const isAccordionExpanded = expandedAccordions.has(submenuId);
+          const className = `accordion-item ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isAccordionExpanded ? 'accordion-expanded' : ''}`;
+          
+          return (
+            <li key={key} className={className}>
+              <div 
+                className="accordion-header"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAccordionToggle(submenuId);
                 }}
-                className="dropdown-submenu-portal"
-                dir={direction}
-                style={{
-                  position: 'fixed',
-                  left: `${submenuPositions.get(submenuId)?.x || 0}px`,
-                  top: `${submenuPositions.get(submenuId)?.y || 0}px`,
-                  width: `${submenuPositions.get(submenuId)?.width || 160}px`,
-                                          height: `${submenuPositions.get(submenuId)?.height || maxHeight}px`,
-                  background: gradientColors ? generateGradient(gradientColors) || background : background,
-                  boxShadow: shadow,
-                  color: textColor,
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: `${finalBorderRadius}px`,
-                  backdropFilter: 'blur(15px) brightness(1.2) saturate(1.5)',
-                  WebkitBackdropFilter: 'blur(15px) brightness(1.2) saturate(1.5)',
-                  fontSize: fontSize,
-                  fontFamily: 'inherit',
-                  zIndex: 10000,
-                  listStyle: 'none',
-                  margin: 0,
-                  padding: '6px 6px',
-                  overflowY: 'auto',
-                  overflowX: 'hidden',
-                  '--arrow-color': textColor,
-                  '--hover-bg-color': effectiveHoverColor,
-                  '--active-bg-color': effectiveActiveColor,
-                } as React.CSSProperties & { 
-                  '--arrow-color': string; 
-                  '--hover-bg-color': string;
-                  '--active-bg-color': string;
-                }}
-                onMouseEnter={() => handleSubmenuMouseEnter(submenuId)}
-                onMouseLeave={() => handleSubmenuMouseLeave(submenuId)}
-                onClick={handleSubmenuClick}
               >
-                {renderSubmenuItems(item.children, submenuId)}
-              </ul>,
-              document.body
-            )}
-          </li>
-        );
+                <span className="item-label">{item.label}</span>
+                <div className="accordion-arrow" aria-hidden>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                    <g transform="translate(0 -32)">
+                      <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5 12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
+                    </g>
+                  </svg>
+                </div>
+              </div>
+              {isAccordionExpanded && (
+                <ul className="accordion-content">
+                  {renderSubmenuItems(item.children, submenuId)}
+                </ul>
+              )}
+            </li>
+          );
+        } else {
+          // Regular submenu behavior (hover-based)
+          const isSubmenuOpen = activeSubmenus.has(submenuId);
+          const className = `has-submenu ${isActive ? 'active' : ''} ${isSelected ? 'selected' : ''} ${isSubmenuOpen ? 'submenu-open' : ''}`;
+          
+          return (
+            <li 
+              key={key} 
+              className={className}
+              tabIndex={-1}
+              onMouseEnter={(e) => handleSubmenuEnter(submenuId, e.currentTarget)}
+              onMouseLeave={() => handleSubmenuLeave(submenuId)}
+              onClick={() => handleSubmenuTriggerClick(submenuId)}
+            >
+              <span className="item-label">{item.label}</span>
+              <div className="submenu-arrow" aria-hidden>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+                  <g transform="translate(0 -32)">
+                    <path d="M233.4 406.6c12.5 12.5 32.8 12.5 45.3 0l192-192c12.5 12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L256 338.7 86.6 169.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3l192 192z"/>
+                  </g>
+                </svg>
+              </div>
+              {/* Render submenu in portal */}
+              {activeSubmenus.has(submenuId) && createPortal(
+                <ul 
+                  ref={(el) => {
+                    if (el) submenuRefs.current.set(submenuId, el);
+                  }}
+                  className="dropdown-submenu-portal"
+                  dir={direction}
+                  style={{
+                    position: 'fixed',
+                    left: `${submenuPositions.get(submenuId)?.x || 0}px`,
+                    top: `${submenuPositions.get(submenuId)?.y || 0}px`,
+                    width: `${submenuPositions.get(submenuId)?.width || 160}px`,
+                    height: `${submenuPositions.get(submenuId)?.height || maxHeight}px`,
+                    background: gradientColors ? generateGradient(gradientColors) || background : background,
+                    boxShadow: shadow,
+                    color: textColor,
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    borderRadius: `${finalBorderRadius}px`,
+                    backdropFilter: 'blur(15px) brightness(1.2) saturate(1.5)',
+                    WebkitBackdropFilter: 'blur(15px) brightness(1.2) saturate(1.5)',
+                    fontSize: fontSize,
+                    fontFamily: 'inherit',
+                    zIndex: 10000,
+                    listStyle: 'none',
+                    margin: 0,
+                    padding: '6px 6px',
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    '--arrow-color': textColor,
+                    '--hover-bg-color': effectiveHoverColor,
+                    '--active-bg-color': effectiveActiveColor,
+                  } as React.CSSProperties & { 
+                    '--arrow-color': string; 
+                    '--hover-bg-color': string;
+                    '--active-bg-color': string;
+                  }}
+                  onMouseEnter={() => handleSubmenuMouseEnter(submenuId)}
+                  onMouseLeave={() => handleSubmenuMouseLeave(submenuId)}
+                  onClick={handleSubmenuClick}
+                >
+                  {renderSubmenuItems(item.children, submenuId)}
+                </ul>,
+                document.body
+              )}
+            </li>
+          );
+        }
       }
       
       const isSelected = selectedItemId === submenuId;
       const isActive = activeItemIds.has(submenuId);
-      
-      console.log(`🔍 renderSubmenuItems (leaf) - item: ${item.label}`, {
-        submenuId,
-        isSelected,
-        isActive,
-        selectedItemId,
-        activeItemIds: Array.from(activeItemIds)
-      });
-      
       const className = `${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''}`;
       
       return (

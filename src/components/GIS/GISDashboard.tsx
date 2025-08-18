@@ -208,8 +208,11 @@ const GISDashboard: React.FC = () => {
       try {
         const data = await loadDatasetData(config);
         setDatasetData(data);
-        // Don't override the map's GeoJSON - only set the geodata
-        setGeodata(data.csvData as GeodataRow[]);
+        // Use the merged GeoJSON data for visualization, not the raw CSV
+        setGeodata(data.geoJson.features.map((feature: any) => ({
+          name: feature.properties.normalizedName || feature.properties.name,
+          ...feature.properties
+        })) as GeodataRow[]);
       } catch (error) {
         console.error(`Error loading dataset ${selectedDataset}:`, error);
         setDatasetData(null);
@@ -380,11 +383,11 @@ const GISDashboard: React.FC = () => {
     const normalizeRegionName = (name: string): string => {
       if (!name) return '';
       // Simply remove " Province" suffix and spaces to match CSV format
-      return name.replace(' Province', '').replace(/ /g, '');
+      return name.replace(' Province', '').replace(/\s/g, '').toLowerCase();
     };
     
     // Use the normalized name if available, otherwise normalize the region name
-    const normalizedName = regionData.normalizedName || normalizeRegionName(regionName);
+    const normalizedName = normalizeRegionName(regionName);
     
     // Find the corresponding data in the geodata array
     const matchingData = geodata.find(item => {
@@ -561,11 +564,11 @@ const GISDashboard: React.FC = () => {
                 beforeOpacity={beforeOpacity}
                 afterOpacity={0.3}
                 coloredDataOpacity={coloredDataOpacity}
-                selectedGeodata={dataType === 'FlowData' ? 'nothing' : (isMapCompatibleWithDataset() ? (currentDatasetConfig?.dataColumn || 'nothing') : 'nothing')}
+                selectedGeodata={dataType === 'FlowData' ? 'nothing' : (isMapCompatibleWithDataset() && currentDatasetConfig ? currentDatasetConfig.dataColumn : 'nothing')}
                 colorMode={getColorMode()}
                 defaultColors={defaultColors}
-                categoricalSchemes={isMapCompatibleWithDataset() ? categoricalSchemes : []}
-                continuousSchemes={isMapCompatibleWithDataset() ? continuousSchemes : []}
+                categoricalSchemes={[]}
+                continuousSchemes={[]}
                 colorMap={colorMap}
                 categoryLabels={dataType === 'FlowData' ? flowCategoryLabels : categoryLabels}
                 hoverTag={getMapHoverTag(mapId)}

@@ -142,6 +142,40 @@
     border-radius: 4px;
 }
 
+/* RTL scrollbar positioning */
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list {
+    direction: rtl;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Force scrollbar to appear on the right side */
+    transform: scaleX(-1);
+}
+
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list li {
+    direction: rtl;
+    text-align: right;
+    /* Flip content back to normal */
+    transform: scaleX(-1);
+}
+
+
+
+
+/* RTL scrollbar styles */
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list::-webkit-scrollbar-track {
+    background: transparent;
+    margin: var(--final-border-radius, 16px) 0;
+}
+
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list::-webkit-scrollbar-thumb {
+    background-color: var(--color-gray6);
+    border-radius: 4px;
+}
+
 .dropdown-menu-list li,
 .dropdown-submenu-portal li {
     border-radius: 16px;
@@ -238,30 +272,31 @@
 .dropdown-submenu-portal li.has-submenu::after {
     content: '';
     position: absolute;
-    top: 0;
-    width: 20px; /* Bridge width */
-    height: 100%;
+    top: -5px;
+    width: 30px; /* Increased bridge width for better navigation */
+    height: calc(100% + 10px); /* Extended height for better coverage */
     pointer-events: none;
+    z-index: 1001; /* Ensure bridge is above other elements */
 }
 
 /* Position bridge based on direction */
 .dropdown-menu-list li.has-submenu::after {
-    right: -20px; /* LTR default - bridge to the right */
+    right: -30px; /* LTR default - bridge to the right, wider for better navigation */
 }
 
 .dropdown-submenu-portal li.has-submenu::after {
-    right: -20px; /* LTR default - bridge to the right */
+    right: -30px; /* LTR default - bridge to the right, wider for better navigation */
 }
 
 /* RTL bridge positioning */
 .dropdown-menu-container[dir="rtl"] .dropdown-menu-list li.has-submenu::after {
     right: auto;
-    left: -20px; /* Bridge to the left in RTL */
+    left: -30px; /* Bridge to the left in RTL, wider for better navigation */
 }
 
 .dropdown-submenu-portal[dir="rtl"] li.has-submenu::after {
     right: auto;
-    left: -20px; /* Bridge to the left in RTL */
+    left: -30px; /* Bridge to the left in RTL, wider for better navigation */
 }
 
 /* professional submenu arrow, SVG like header, positioned on trailing side */
@@ -440,21 +475,22 @@
 .dropdown-submenu-portal li.has-submenu::after {
     content: '';
     position: absolute;
-    top: 0;
-    width: 20px; /* Bridge width */
-    height: 100%;
+    top: -5px;
+    width: 30px; /* Increased bridge width for better navigation */
+    height: calc(100% + 10px); /* Extended height for better coverage */
     pointer-events: none;
+    z-index: 1001; /* Ensure bridge is above other elements */
 }
 
 /* Position bridge based on direction */
 .dropdown-submenu-portal li.has-submenu::after {
-    right: -20px; /* LTR default - bridge to the right */
+    right: -30px; /* LTR default - bridge to the right, wider for better navigation */
 }
 
 /* RTL bridge positioning */
 .dropdown-submenu-portal[dir="rtl"] li.has-submenu::after {
     right: auto;
-    left: -20px; /* Bridge to the left in RTL */
+    left: -30px; /* Bridge to the left in RTL, wider for better navigation */
 }
 
 /* Ensure submenu item labels have consistent styling */
@@ -485,3 +521,207 @@
 .dropdown-submenu-portal::-webkit-scrollbar-thumb:hover {
     background-color: var(--color-gray5);
 }
+
+/* RTL scrollbar positioning for submenus */
+.dropdown-submenu-portal[dir="rtl"] {
+    direction: rtl;
+    overflow-y: auto;
+    overflow-x: hidden;
+    /* Force scrollbar to appear on the right side */
+    transform: scaleX(-1);
+}
+
+.dropdown-submenu-portal[dir="rtl"] li {
+    direction: rtl;
+    text-align: right;
+    /* Flip content back to normal */
+    transform: scaleX(-1);
+}
+
+/* RTL scrollbar styles for submenus */
+.dropdown-submenu-portal[dir="rtl"]::-webkit-scrollbar {
+    width: 6px;
+}
+
+.dropdown-submenu-portal[dir="rtl"]::-webkit-scrollbar-track {
+    background: transparent;
+    margin: var(--final-border-radius, 16px) 0;
+}
+
+.dropdown-submenu-portal[dir="rtl"]::-webkit-scrollbar-thumb {
+    background-color: var(--color-gray6);
+    border-radius: 4px;
+}
+
+.dropdown-submenu-portal[dir="rtl"]::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-gray5);
+}
+
+/* ACCORDION STYLES */
+.dropdown-menu-list li.accordion-item,
+.dropdown-submenu-portal li.accordion-item {
+    position: relative;
+    overflow: visible;
+    cursor: pointer;
+    user-select: none;
+    background-color: transparent;
+    border-radius: 16px;
+    padding: 0; /* Remove default padding for accordion items */
+}
+
+.dropdown-menu-list li.accordion-item .accordion-header,
+.dropdown-submenu-portal li.accordion-item .accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding-block: 6px;
+    padding-inline-start: 12px; /* leading padding */
+    padding-inline-end: 28px;   /* trailing padding (for arrow) */
+    border-radius: 16px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    position: relative;
+    direction: inherit; /* Inherit direction from parent */
+    text-align: right; /* Force RTL alignment for Persian text */
+
+}
+
+.dropdown-menu-list li.accordion-item .accordion-header:hover,
+.dropdown-submenu-portal li.accordion-item .accordion-header:hover {
+    background-color: var(--hover-bg-color);
+}
+
+.dropdown-menu-list li.accordion-item.active .accordion-header,
+.dropdown-submenu-portal li.accordion-item.active .accordion-header {
+    background-color: var(--active-bg-color);
+}
+
+.dropdown-menu-list li.accordion-item.selected .accordion-header,
+.dropdown-submenu-portal li.accordion-item.selected .accordion-header {
+    background-color: var(--active-bg-color);
+}
+
+.dropdown-menu-list li.accordion-item .accordion-header .item-label,
+.dropdown-submenu-portal li.accordion-item .accordion-header .item-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right; /* Force RTL alignment for Persian text */
+    direction: rtl; /* Ensure proper RTL text direction */
+}
+
+.dropdown-menu-list li.accordion-item .accordion-arrow,
+.dropdown-submenu-portal li.accordion-item .accordion-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    right: 6px; /* Position on the right for LTR */
+    width: 16px;
+    height: 16px;
+    border-radius: 0;
+    background-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+}
+
+.dropdown-menu-list li.accordion-item .accordion-arrow svg,
+.dropdown-submenu-portal li.accordion-item .accordion-arrow svg {
+    width: 100%; /* Match the main dropdown arrow size */
+    height: 100%;
+    fill: var(--arrow-color);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Rotate arrow when accordion is expanded */
+.dropdown-menu-list li.accordion-item.accordion-expanded .accordion-arrow svg,
+.dropdown-submenu-portal li.accordion-item.accordion-expanded .accordion-arrow svg {
+    transform: rotate(180deg);
+}
+
+/* RTL accordion arrow positioning */
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list li.accordion-item .accordion-arrow,
+.dropdown-submenu-portal[dir="rtl"] li.accordion-item .accordion-arrow {
+    right: auto;
+    left: 6px; /* Position on the left in RTL */
+}
+
+.dropdown-menu-list li.accordion-item .accordion-content,
+.dropdown-submenu-portal li.accordion-item .accordion-content {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    overflow: hidden;
+    background-color: transparent;
+    border-radius: 0;
+    max-height: 0;
+    opacity: 0;
+    visibility: hidden;
+    transform: inherit; /* Ensure accordion content inherits parent transforms */
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.5s, 
+                opacity 0.2s ease-in-out 0.7s,
+                visibility 0.2s ease-in-out 0.7s,
+                padding 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.5s;
+}
+
+/* Accordion content when expanded - smooth coordinated animation */
+.dropdown-menu-list li.accordion-item.accordion-expanded .accordion-content,
+.dropdown-submenu-portal li.accordion-item.accordion-expanded .accordion-content {
+    max-height: 300px; /* Reasonable max-height for smooth animation */
+    opacity: 1;
+    visibility: visible;
+    padding: 0 0 0 16px; /* Indent accordion content */
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.5s, 
+                opacity 0.2s ease-in-out 0.7s,
+                visibility 0.2s ease-in-out 0.7s,
+                padding 0.4s cubic-bezier(0.4, 0, 0.2, 1) 0.5s;
+}
+
+/* RTL accordion content indentation - only when expanded */
+.dropdown-menu-container[dir="rtl"] .dropdown-menu-list li.accordion-item.accordion-expanded .accordion-content,
+.dropdown-submenu-portal[dir="rtl"] li.accordion-item.accordion-expanded .accordion-content {
+    padding: 0 16px 0 0; /* Indent from right in RTL */
+}
+
+/* Accordion content items styling */
+.dropdown-menu-list li.accordion-item .accordion-content li,
+.dropdown-submenu-portal li.accordion-item .accordion-content li {
+    border-radius: 12px; /* Slightly smaller radius for nested items */
+    padding: 4px 12px; /* Smaller padding for nested items */
+    margin: 2px 0; /* Small margin between nested items */
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    text-align: right; /* Force RTL alignment for Persian text */
+    font-size: 0.95em; /* Slightly smaller font for nested items */
+    direction: rtl; /* Ensure proper RTL text direction */
+}
+
+.dropdown-menu-list li.accordion-item .accordion-content li:hover,
+.dropdown-submenu-portal li.accordion-item .accordion-content li:hover {
+    background-color: var(--hover-bg-color);
+}
+
+.dropdown-menu-list li.accordion-item .accordion-content li.selected,
+.dropdown-submenu-portal li.accordion-item .accordion-content li.selected {
+    background-color: var(--active-bg-color);
+}
+
+.dropdown-menu-list li.accordion-item .accordion-content li.active,
+.dropdown-submenu-portal li.accordion-item .accordion-content li.active {
+    background-color: var(--active-bg-color);
+}
+
+/* Ensure accordion items don't have submenu styling conflicts */
+.dropdown-menu-list li.accordion-item:not(.has-submenu)::after,
+.dropdown-submenu-portal li.accordion-item:not(.has-submenu)::after {
+    display: none; /* Remove hover bridge for accordion items */
+}
+
+
+

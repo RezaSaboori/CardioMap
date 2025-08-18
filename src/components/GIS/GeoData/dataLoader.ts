@@ -28,13 +28,19 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
     // Fix the path to be relative to dataLoader location (src/components/GIS/GeoData/)
     // config.geoJsonPath is like '../../datasets/geojson/Iran.json' (relative to src/components/GIS/)
     // dataLoader is in src/components/GIS/GeoData/, so we need to go up one more level
-    const geoJsonPath = config.geoJsonPath.replace('../', '../../');
+    // For disease datasets, the path might be '../../../datasets/geojson/Iran.json'
+    let geoJsonPath = config.geoJsonPath;
+    if (geoJsonPath.includes('../../datasets/geojson/')) {
+      geoJsonPath = geoJsonPath.replace('../../datasets/geojson/', '../../../datasets/geojson/');
+    }
+    
+
     
     try {
       const geoJsonModule = await import(/* @vite-ignore */ geoJsonPath);
       geoJsonData = geoJsonModule.default;
     } catch (importError) {
-      console.error(`Failed to load GeoJSON from ${geoJsonPath}:`, importError);
+      throw new Error(`Could not load GeoJSON data for dataset ${config.name}`);
       throw new Error(`Could not load GeoJSON data for dataset ${config.name}`);
     }
 
@@ -43,8 +49,15 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
     try {
       csvData = await loadCsvData(config.csvPath);
       
+      // Preprocess: If the join column is 'Province', strip ' Province' from all values
+      if (config.csvJoinColumn === 'Province') {
+        csvData = csvData.map(row => ({
+          ...row,
+          Province: typeof row.Province === 'string' ? row.Province.replace(/\s*Province\s*$/, '').trim() : row.Province
+        }));
+      }
+      
       if (csvData.length === 0) {
-        console.error('No CSV data loaded!');
         throw new Error(`No CSV data loaded from ${config.csvPath}`);
       }
       
@@ -52,12 +65,9 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
       
       // Check if the expected column exists
       if (!csvData[0] || !csvData[0][config.csvJoinColumn]) {
-        console.error(`CSV missing expected column '${config.csvJoinColumn}'`);
-        console.error('Available columns:', Object.keys(csvData[0] || {}));
         throw new Error(`CSV missing expected column '${config.csvJoinColumn}'`);
       }
     } catch (error) {
-      console.error(`Failed to load CSV from ${config.csvPath}:`, error);
       throw error;
     }
 
@@ -70,9 +80,20 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
     const normalizeRegionName = (name: string | undefined | null): string => {
       if (!name) return '';
       
-      // Simply remove " Province" suffix and spaces to match CSV format
-      return name.replace(' Province', '').replace(/ /g, '');
+      // Remove " Province" suffix but preserve internal spaces
+      // Also handle variations like " Province" and "Province"
+      return name.replace(/\s*Province\s*$/, '').trim();
     };
+
+    // Create a lookup map for efficient CSV data retrieval
+    const csvLookupMap = new Map<string, Record<string, any>>();
+    csvData.forEach((row: any) => {
+      const csvRegionName = row[config.csvJoinColumn];
+      if (csvRegionName) {
+        const normalizedCsvRegionName = normalizeRegionName(csvRegionName);
+        csvLookupMap.set(normalizedCsvRegionName, row);
+      }
+    });
 
     // Merge CSV data into GeoJSON features
     const mergedFeatures = geoJsonData.features.map((feature: any) => {
@@ -80,30 +101,14 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
       const regionName = getNestedProperty(feature.properties, config.joinProperty);
       
       if (!regionName) {
-        console.warn(`No region name found for feature with properties:`, feature.properties);
         return feature;
       }
 
       // Normalize the region name to match CSV format
       const normalizedRegionName = normalizeRegionName(regionName);
 
-      // Find matching CSV row
-      const matchingCsvRow = csvData.find((row: any) => {
-        const csvRegionName = row[config.csvJoinColumn];
-        
-        // Debug logging to understand the data
-        if (!csvRegionName) {
-          console.warn(`CSV row missing ${config.csvJoinColumn} column:`, row);
-          return false;
-        }
-        
-        // Normalize the CSV region name for comparison
-        const normalizedCsvRegionName = normalizeRegionName(csvRegionName);
-        
-        // Debug logging for name matching
-        
-        return normalizedCsvRegionName === normalizedRegionName;
-      });
+      // Find matching CSV row using efficient Map lookup
+      const matchingCsvRow = csvLookupMap.get(normalizedRegionName);
 
       if (matchingCsvRow) {
         return {
@@ -117,7 +122,6 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
         };
       }
 
-      console.warn(`No matching CSV data found for region: ${regionName} (normalized: ${normalizedRegionName})`);
       return feature;
     });
 
@@ -125,6 +129,10 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
       type: 'FeatureCollection',
       features: mergedFeatures
     };
+
+    // Calculate summary statistics for data processing
+    const matchedCount = mergedFeatures.filter((f: any) => f.properties.normalizedName).length;
+    const totalFeatures = mergedFeatures.length;
 
     // Calculate min/max values for numeric data
     let minValue: number | undefined;
@@ -141,8 +149,6 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
       if (values.length > 0) {
         minValue = Math.min(...values);
         maxValue = Math.max(...values);
-      } else {
-        console.warn(`No valid numeric values found for ${config.name} in column ${config.dataColumn}`);
       }
     } else if (config.type === 'categorical') {
       const uniqueCategories = [...new Set(csvData.map((row: Record<string, any>) => row[config.dataColumn]))];
@@ -157,7 +163,6 @@ export const loadDatasetData = async (config: GeoDatasetConfig): Promise<Dataset
       categories
     };
   } catch (error) {
-    console.error(`Error loading dataset ${config.name}:`, error);
     throw error;
   }
 };

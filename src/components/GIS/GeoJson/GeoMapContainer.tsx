@@ -124,7 +124,6 @@ const GeoMapContainer: React.FC<GeoMapContainerProps> = ({
       const colorMap = currentDatasetConfig.colorMap;
       
       if (!colorMap) {
-        console.warn('No colorMap provided in dataset configuration for categorical data');
         return { categoricalSchemes: [], continuousSchemes: [] };
       }
       

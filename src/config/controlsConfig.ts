@@ -19,6 +19,7 @@ export interface ControlNode {
   label: string;
   value?: string; // Present only on leaves
   children?: ControlNode[]; // Optional submenu children
+  accordion?: boolean; // Whether this node should behave as an accordion (click to expand/collapse)
 }
 
 export interface SingleControlConfig {
@@ -36,13 +37,76 @@ export const controlsConfig: Record<string, SingleControlConfig> = {
     items: [
       { label: 'هیچ', value: 'nothing' },
       { label: 'مسیر بیماران', value: 'مسیر بیماران' }, // flowdata
-              // dataset
+      // dataset
       {
         label: 'وضعیت استانی',
+        accordion: false,
         children: [
           { label: 'جمعیت استانی', value: 'جمعیت' },
           { label: 'وضعیت سلامتی', value: 'وضعیت سلامت' },
         ],
+      },
+      {
+        label: 'بیماری ها',
+        accordion: true,
+        children: [
+          {
+            label: 'شیوع',
+            children: [
+              { label: 'بیماری آئورت', value: 'شیوع بیماری آئورت' },
+              { label: 'فیبریلاسیون دهلیزی', value: 'شیوع فیبریلاسیون دهلیزی' },
+              { label: 'بیماری مادرزادی قلب', value: 'شیوع بیماری مادرزادی قلب' },
+              { label: 'ترومبوز ورید عمقی', value: 'شیوع ترومبوز ورید عمقی' },
+              { label: 'بیماری عروق کرونر', value: 'شیوع بیماری عروق کرونر' },
+              { label: 'نارسایی قلبی', value: 'شیوع نارسایی قلبی' },
+              { label: 'بیماری دریچه قلب', value: 'شیوع بیماری دریچه قلب' },
+              { label: 'بیماری شریان محیطی', value: 'شیوع بیماری شریان محیطی' },
+              { label: 'آمبولی ریوی', value: 'شیوع آمبولی ریوی' }
+            ]
+          },
+          {
+            label: 'بروز',
+            children: [
+              { label: 'بیماری آئورت', value: 'بروز بیماری آئورت' },
+              { label: 'فیبریلاسیون دهلیزی', value: 'بروز فیبریلاسیون دهلیزی' },
+              { label: 'بیماری مادرزادی قلب', value: 'بروز بیماری مادرزادی قلب' },
+              { label: 'ترومبوز ورید عمقی', value: 'بروز ترومبوز ورید عمقی' },
+              { label: 'بیماری عروق کرونر', value: 'بروز بیماری عروق کرونر' },
+              { label: 'نارسایی قلبی', value: 'بروز نارسایی قلبی' },
+              { label: 'بیماری دریچه قلب', value: 'بروز بیماری دریچه قلب' },
+              { label: 'بیماری شریان محیطی', value: 'بروز بیماری شریان محیطی' },
+              { label: 'آمبولی ریوی', value: 'بروز آمبولی ریوی' }
+            ]
+          },
+          {
+            label: 'مرگ و میر',
+            children: [
+              { label: 'بیماری آئورت', value: 'مرگ و میر آئورت' },
+              { label: 'فیبریلاسیون دهلیزی', value: 'مرگ و میر فیبریلاسیون دهلیزی' },
+              { label: 'بیماری مادرزادی قلب', value: 'مرگ و میر بیماری مادرزادی قلب' },
+              { label: 'ترومبوز ورید عمقی', value: 'مرگ و میر ترومبوز ورید عمقی' },
+              { label: 'بیماری عروق کرونر', value: 'مرگ و میر بیماری عروق کرونر' },
+              { label: 'نارسایی قلبی', value: 'مرگ و میر نارسایی قلبی' },
+              { label: 'بیماری دریچه قلب', value: 'مرگ و میر بیماری دریچه قلب' },
+              { label: 'بیماری شریان محیطی', value: 'مرگ و میر بیماری شریان محیطی' },
+              { label: 'آمبولی ریوی', value: 'مرگ و میر آمبولی ریوی' }
+            ]
+          },
+          {
+            label: 'بار بیماری ها',
+            children: [
+              { label: 'بیماری آئورت', value: 'بار بیماری آئورت' },
+              { label: 'فیبریلاسیون دهلیزی', value: 'بار فیبریلاسیون دهلیزی' },
+              { label: 'بیماری مادرزادی قلب', value: 'بار بیماری مادرزادی قلب' },
+              { label: 'ترومبوز ورید عمقی', value: 'بار ترومبوز ورید عمقی' },
+              { label: 'بیماری عروق کرونر', value: 'بار بیماری عروق کرونر' },
+              { label: 'نارسایی قلبی', value: 'بار نارسایی قلبی' },
+              { label: 'بیماری دریچه قلب', value: 'بار بیماری دریچه قلب' },
+              { label: 'بیماری شریان محیطی', value: 'بار بیماری شریان محیطی' },
+              { label: 'آمبولی ریوی', value: 'بار آمبولی ریوی' },
+            ]
+          }
+        ]
       },
       { label: 'مراکز پژوهشی', value: 'مراکز پژوهشی' },  // pointdata
     ],
@@ -55,14 +119,6 @@ export const controlsConfig: Record<string, SingleControlConfig> = {
     // You can extend this list; validator will log missing map IDs
     items: [
       { label: 'کل کشور', value: 'Iran' },
-      { label: 'تهران', value: 'Tehran' },
-      { label: 'البرز', value: 'Alborz' },
-      { label: 'اردبیل', value: 'Ardabil' },
-      { label: 'بوشهر', value: 'Bushehr' },
-      { label: 'چهارمحال و بختیاری', value: 'ChaharmahalandBakhtiyari' },
-      { label: 'آذربایجان شرقی', value: 'EastAzerbaijan' },
-      { label: 'فارس', value: 'Fars' },
-      { label: 'گیلان', value: 'Gilan' },
       {
         label: 'استان‌ها',
         children: [
@@ -230,5 +286,3 @@ export const validateControlsConfig = (): void => {
     console.error('[ControlsConfig] Validation error:', err);
   }
 };
-
-

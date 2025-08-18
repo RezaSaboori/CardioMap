@@ -36,7 +36,7 @@ export const buildRegionDataMap = (geodata: GeodataRow[]): Record<string, Geodat
   const map: Record<string, GeodataRow> = {};
   geodata.forEach((row: GeodataRow) => {
     if (row.name) {
-      let normName = row.name.replace(' Province', '').replace(/ /g, '');
+      let normName = row.name.replace(' Province', '').replace(/\s/g, '').toLowerCase();
       map[normName] = row;
     }
   });
@@ -58,11 +58,10 @@ export const enrichGeoJsonData = (
   const enrichedGeoJsonData = {
     ...geoJsonData,
     features: geoJsonData.features.map((feature: any) => {
-      const regionName = feature.properties?.tags?.['name:en']?.replace(' Province', '').replace(/ /g, '') ||
-                        feature.properties?.name?.replace(' Province', '').replace(/ /g, '') ||
-                        feature.properties?.NAME?.replace(' Province', '').replace(/ /g, '');
+        const nameProperty = feature.properties?.tags?.['name:en'] || feature.properties?.name || feature.properties?.NAME;
+        const regionName = nameProperty ? nameProperty.replace(' Province', '').replace(/\s/g, '').toLowerCase() : undefined;
       
-      const regionData = regionDataMap[regionName];
+      const regionData = regionName ? regionDataMap[regionName] : undefined;
       
       if (regionData) {
         return {
@@ -165,6 +164,8 @@ export const createGeodataFillLayer = (
   coloredDataOpacity: number = 0.6,
   themeDefaultColor: string = '#ccc'
 ): any => {
+
+
   let fillColor: any = themeDefaultColor;
   let fillOpacity = beforeOpacity;
   
@@ -194,9 +195,11 @@ export const createGeodataFillLayer = (
       'match', ['get', selectedGeodata],
       ...matchArr
     ];
+  } else {
+    // Using default fillColor
   }
   
-  return {
+  const result = {
     id: 'data-fill',
     type: 'fill',
     source: 'my-data',
@@ -210,4 +213,6 @@ export const createGeodataFillLayer = (
       ]
     }
   };
+
+  return result;
 }; 
